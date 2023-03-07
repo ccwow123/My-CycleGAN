@@ -12,6 +12,8 @@ import torch
 
 from models import Generator
 from datasets import ImageDataset
+from concurrent.futures import ThreadPoolExecutor
+from tqdm import tqdm
 def parser_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
@@ -67,6 +69,19 @@ class Detecter:
         netG_B2A.eval()
         return netG_A2B, netG_B2A
 
+    def detect_func(self, batch, dataloader, i, input_A, input_B, netG_A2B, netG_B2A, save_path_A, save_path_B):
+        # Set model input
+        real_A = Variable(input_A.copy_(batch['A']))
+        real_B = Variable(input_B.copy_(batch['B']))
+        # Generate output
+        fake_B = 0.5 * (netG_A2B(real_A).data + 1.0)
+        fake_A = 0.5 * (netG_B2A(real_B).data + 1.0)
+        # Save image files
+        save_image(fake_A, os.path.join(save_path_A, '%04d.png' % (i + 1)))
+        save_image(fake_B, os.path.join(save_path_B, '%04d.png' % (i + 1)))
+        # sys.stdout.write('\rGenerated images %04d of %04d' % (i + 1, len(dataloader)))
+
+
     def run(self):
         ###### Definition of variables ######
         netG_A2B, netG_B2A = self.create_models()
@@ -85,23 +100,16 @@ class Detecter:
         # Create output dirs if they don't exist
         save_path_A, save_path_B=self.create_save_path()
 
-        for i, batch in enumerate(dataloader):
-            # Set model input
-            real_A = Variable(input_A.copy_(batch['A']))
-            real_B = Variable(input_B.copy_(batch['B']))
-
-            # Generate output
-            fake_B = 0.5 * (netG_A2B(real_A).data + 1.0)
-            fake_A = 0.5 * (netG_B2A(real_B).data + 1.0)
-
-            # Save image files
-            save_image(fake_A, os.path.join(save_path_A, '%04d.png' % (i + 1)))
-            save_image(fake_B, os.path.join(save_path_B, '%04d.png' % (i + 1)))
-
-            sys.stdout.write('\rGenerated images %04d of %04d' % (i + 1, len(dataloader)))
-
-        sys.stdout.write('\n')
+        # for i, batch in enumerate(dataloader):
+        #     self.method_name(batch, dataloader, i, input_A, input_B, netG_A2B, netG_B2A, save_path_A, save_path_B)
+        # sys.stdout.write('\n')
         ###################################
+        # 多线程
+        pool = ThreadPoolExecutor()
+        for i, batch in enumerate(tqdm(dataloader)):
+            pool.submit(self.detect_func, batch, dataloader, i, input_A, input_B, netG_A2B, netG_B2A, save_path_A, save_path_B)
+
+
 if __name__ == '__main__':
     args = parser_args()
     detecter = Detecter(args)
