@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument('--output_nc', type=int, default=3, help='number of channels of output data')
     parser.add_argument('--cuda', action='store_true', default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=0, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--pretrained', type=str, default='', help='pretrained model path')
+    parser.add_argument('--pretrained', type=str, default='output_ori', help='pretrained model path')
     opt = parser.parse_args()
     print(opt)
     if torch.cuda.is_available() and not opt.cuda:
@@ -273,9 +273,9 @@ class Trainer:
         self.tb.add_scalar('loss_G_cycle', loss_dict['loss_G_dict']['loss_cycle_ABA'] + loss_dict['loss_G_dict']['loss_cycle_BAB'], epoch)
         self.tb.add_scalar('loss_D', loss_dict['loss_D_A'] + loss_dict['loss_D_B'], epoch)
         # 将学习率写入tensorboard
-        self.tb.add_scalar('lr_G', lr_scheduler_dict['lr_scheduler_G'].get_lr()[0], epoch)
-        self.tb.add_scalar('lr_D_A', lr_scheduler_dict['lr_scheduler_D_A'].get_lr()[0], epoch)
-        self.tb.add_scalar('lr_D_B', lr_scheduler_dict['lr_scheduler_D_B'].get_lr()[0], epoch)
+        self.tb.add_scalar('lr_G', lr_scheduler_dict['lr_scheduler_G'].get_last_lr()[0], epoch)
+        self.tb.add_scalar('lr_D_A', lr_scheduler_dict['lr_scheduler_D_A'].get_last_lr()[0], epoch)
+        self.tb.add_scalar('lr_D_B', lr_scheduler_dict['lr_scheduler_D_B'].get_last_lr()[0], epoch)
 
         if True:
         # if self.args.open_tensorboard is True:
