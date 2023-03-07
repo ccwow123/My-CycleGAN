@@ -235,7 +235,7 @@ class Trainer:
         return loss_D_B,fake_B
 
     # 一轮训练
-    def train_one_epoch(self, dataloader, models):
+    def train_one_epoch(self, dataloader, models,logger):
         for i, batch in enumerate(dataloader):
             # Set model input
             real_A = Variable(self.input_dict['input_A'].copy_(batch['A']))
@@ -250,7 +250,19 @@ class Trainer:
             loss_D_B ,fake_B= self._discriminator_B(real_dict,models)
             loss_dict = dict(loss_G_dict=loss_G_dict, loss_D_A=loss_D_A, loss_D_B=loss_D_B)
             fake_dict = dict(fake_A=fake_A, fake_B=fake_B)
-            
+
+            # 记录损失
+            loss_G = loss_dict['loss_G_dict']['loss_G']
+            loss_G_identity = loss_dict['loss_G_dict']['loss_identity_A'] + loss_dict['loss_G_dict']['loss_identity_B']
+            loss_G_GAN = loss_dict['loss_G_dict']['loss_GAN_A2B'] + loss_dict['loss_G_dict']['loss_GAN_B2A']
+            loss_G_cycle = loss_dict['loss_G_dict']['loss_cycle_ABA'] + loss_dict['loss_G_dict']['loss_cycle_BAB']
+            loss_D = loss_dict['loss_D_A'] + loss_dict['loss_D_B']
+            # Progress report (http://localhost:8097)
+            logger.log(losses={'loss_G': loss_G, 'loss_G_identity': loss_G_identity, 'loss_G_GAN': loss_G_GAN,
+                               'loss_G_cycle': loss_G_cycle, 'loss_D': loss_D},
+                       images={'real_A': real_dict['real_A'], 'real_B': real_dict['real_B'],
+                               'fake_A': fake_dict['fake_A'], 'fake_B': fake_dict['fake_B']})
+
         return loss_dict, real_dict,fake_dict
 
     # 写入tensorboard
@@ -293,18 +305,18 @@ class Trainer:
         # 模型训练
         for epoch in range(self.args.epoch, self.args.n_epochs):
             # 训练
-            loss_dict,real_dict,fake_dict = self.train_one_epoch(dataloader, models)
-            # 记录损失
-            loss_G = loss_dict['loss_G_dict']['loss_G']
-            loss_G_identity = loss_dict['loss_G_dict']['loss_identity_A'] + loss_dict['loss_G_dict']['loss_identity_B']
-            loss_G_GAN = loss_dict['loss_G_dict']['loss_GAN_A2B'] + loss_dict['loss_G_dict']['loss_GAN_B2A']
-            loss_G_cycle = loss_dict['loss_G_dict']['loss_cycle_ABA'] + loss_dict['loss_G_dict']['loss_cycle_BAB']
-            loss_D =loss_dict['loss_D_A'] + loss_dict['loss_D_B']
-            # Progress report (http://localhost:8097)
-            logger.log(losses={'loss_G': loss_G, 'loss_G_identity': loss_G_identity,'loss_G_GAN': loss_G_GAN,
-                                'loss_G_cycle': loss_G_cycle, 'loss_D': loss_D},
-                       images={'real_A': real_dict['real_A'], 'real_B': real_dict['real_B'],
-                               'fake_A': fake_dict['fake_A'], 'fake_B': fake_dict['fake_B']})
+            loss_dict,real_dict,fake_dict = self.train_one_epoch(dataloader, models,logger)
+            # # 记录损失
+            # loss_G = loss_dict['loss_G_dict']['loss_G']
+            # loss_G_identity = loss_dict['loss_G_dict']['loss_identity_A'] + loss_dict['loss_G_dict']['loss_identity_B']
+            # loss_G_GAN = loss_dict['loss_G_dict']['loss_GAN_A2B'] + loss_dict['loss_G_dict']['loss_GAN_B2A']
+            # loss_G_cycle = loss_dict['loss_G_dict']['loss_cycle_ABA'] + loss_dict['loss_G_dict']['loss_cycle_BAB']
+            # loss_D =loss_dict['loss_D_A'] + loss_dict['loss_D_B']
+            # # Progress report (http://localhost:8097)
+            # logger.log(losses={'loss_G': loss_G, 'loss_G_identity': loss_G_identity,'loss_G_GAN': loss_G_GAN,
+            #                     'loss_G_cycle': loss_G_cycle, 'loss_D': loss_D},
+            #            images={'real_A': real_dict['real_A'], 'real_B': real_dict['real_B'],
+            #                    'fake_A': fake_dict['fake_A'], 'fake_B': fake_dict['fake_B']})
         # Update learning rates
         self.lr_scheduler_dict['lr_scheduler_G'].step()
         self.lr_scheduler_dict['lr_scheduler_D_A'].step()
