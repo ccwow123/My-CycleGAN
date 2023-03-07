@@ -14,6 +14,10 @@ from models import Generator
 from datasets import ImageDataset
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
+'''
+由A生成B 缺陷到正常 所以看生成的B文件夹，结果一定处理即可得到缺陷检测结果
+由B生成A 正常到缺陷 所以看生成的A文件夹即可得到数据增强
+'''
 def parser_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
@@ -74,8 +78,8 @@ class Detecter:
         real_A = Variable(input_A.copy_(batch['A']))
         real_B = Variable(input_B.copy_(batch['B']))
         # Generate output
-        fake_B = 0.5 * (netG_A2B(real_A).data + 1.0)
-        fake_A = 0.5 * (netG_B2A(real_B).data + 1.0)
+        fake_B = 0.5 * (netG_A2B(real_A).data + 1.0)#由A生成B 缺陷到正常
+        fake_A = 0.5 * (netG_B2A(real_B).data + 1.0)#由B生成A 正常到缺陷
         # Save image files
         save_image(fake_A, os.path.join(save_path_A, '%04d.png' % (i + 1)))
         save_image(fake_B, os.path.join(save_path_B, '%04d.png' % (i + 1)))
