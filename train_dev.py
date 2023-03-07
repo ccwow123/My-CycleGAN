@@ -72,7 +72,7 @@ class Trainer:
     def load_dataset(self):
         # Dataset loader
         transforms_ = [transforms.Resize(int(self.args.size * 1.12)),
-                       transforms.RandomCrop(self.args.size),
+                       transforms.CenterCrop(self.args.size),
                        transforms.RandomHorizontalFlip(),
                        transforms.ToTensor(),
                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
