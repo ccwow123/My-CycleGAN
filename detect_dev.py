@@ -21,8 +21,8 @@ def parser_args():
     parser.add_argument('--size', type=int, default=512, help='size of the data (squared assumed)')
     parser.add_argument('--cuda', action='store_true',default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=0, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--generator_A2B', type=str, default='output/netG_A2B.pth', help='A2B generator checkpoint file')
-    parser.add_argument('--generator_B2A', type=str, default='output/netG_B2A.pth', help='B2A generator checkpoint file')
+    parser.add_argument('--generator_A2B', type=str, default='output_ori/netG_A2B.pth', help='A2B generator checkpoint file')
+    parser.add_argument('--generator_B2A', type=str, default='output_ori/netG_B2A.pth', help='B2A generator checkpoint file')
     opt = parser.parse_args()
     print(opt)
 
@@ -35,7 +35,7 @@ class Detecter:
         self.args =args
 
     def create_save_path(self):
-        save_path = os.path.join('output',self.args.dataroot)
+        save_path = os.path.join('output',self.args.dataroot.split('/')[-1])
         save_path_A = os.path.join(save_path, 'A')
         save_path_B = os.path.join(save_path, 'B')
         if not os.path.exists(save_path_A):
@@ -102,3 +102,7 @@ class Detecter:
 
         sys.stdout.write('\n')
         ###################################
+if __name__ == '__main__':
+    args = parser_args()
+    detecter = Detecter(args)
+    detecter.run()
