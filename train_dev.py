@@ -314,23 +314,23 @@ class Trainer:
             self._write_tb(epoch, loss_dict, lr_scheduler_dict, models)
 
             # 保存模型
-            if epoch % self.args.save_epoch == 0 and epoch != self.args.n_epochs - 1:
-                torch.save(models['netG_A2B'].state_dict(), f"{log_dir}/netG_A2B.pth")
-                torch.save(models['netG_B2A'].state_dict(), f"{log_dir}/netG_B2A.pth")
-                torch.save(models['netD_A'].state_dict(), f"{log_dir}/netD_A.pth")
-                torch.save(models['netD_B'].state_dict(), f"{log_dir}/netD_B.pth")
-            elif loss_dict['loss_G_dict']['loss_GAN_A2B'] < best_loss[0]:
-                best_loss[0] = loss_dict['loss_G_dict']['loss_GAN_A2B']
-                torch.save(models['netG_A2B'].state_dict(), f"{log_dir}/netG_A2B.pth")
-            elif loss_dict['loss_G_dict']['loss_GAN_B2A'] < best_loss[1]:
-                best_loss[1] = loss_dict['loss_G_dict']['loss_GAN_B2A']
-                torch.save(models['netG_B2A'].state_dict(), f"{log_dir}/netG_B2A.pth")
-            elif loss_dict['loss_D_A'] < best_loss[2]:
-                best_loss[2] = loss_dict['loss_G_dict']['loss_G']
-                torch.save(models['netD_A'].state_dict(), f"{log_dir}/netD_A.pth")
-            elif loss_dict['loss_D_B'] < best_loss[3]:
-                best_loss[3] = loss_dict['loss_G_dict']['loss_G']
-                torch.save(models['netD_B'].state_dict(), f"{log_dir}/netD_B.pth")
+            # if epoch % self.args.save_epoch == 0 and epoch != self.args.n_epochs - 1:
+            torch.save(models['netG_A2B'].state_dict(), f"{log_dir}/netG_A2B.pth")
+            torch.save(models['netG_B2A'].state_dict(), f"{log_dir}/netG_B2A.pth")
+            torch.save(models['netD_A'].state_dict(), f"{log_dir}/netD_A.pth")
+            torch.save(models['netD_B'].state_dict(), f"{log_dir}/netD_B.pth")
+            # elif loss_dict['loss_G_dict']['loss_GAN_A2B'] < best_loss[0]:
+            #     best_loss[0] = loss_dict['loss_G_dict']['loss_GAN_A2B']
+            #     torch.save(models['netG_A2B'].state_dict(), f"{log_dir}/netG_A2B.pth")
+            # elif loss_dict['loss_G_dict']['loss_GAN_B2A'] < best_loss[1]:
+            #     best_loss[1] = loss_dict['loss_G_dict']['loss_GAN_B2A']
+            #     torch.save(models['netG_B2A'].state_dict(), f"{log_dir}/netG_B2A.pth")
+            # elif loss_dict['loss_D_A'] < best_loss[2]:
+            #     best_loss[2] = loss_dict['loss_G_dict']['loss_D_A']
+            #     torch.save(models['netD_A'].state_dict(), f"{log_dir}/netD_A.pth")
+            # elif loss_dict['loss_D_B'] < best_loss[3]:
+            #     best_loss[3] = loss_dict['loss_G_dict']['loss_D_B']
+            #     torch.save(models['netD_B'].state_dict(), f"{log_dir}/netD_B.pth")
 
 
 if __name__ == '__main__':
