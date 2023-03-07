@@ -122,8 +122,9 @@ class Trainer:
         criterion_identity = torch.nn.L1Loss()
 
         # Optimizers & LR schedulers
-        optimizer_G = torch.optim.Adam(itertools.chain(models['netG_A2B'].parameters(), models['netG_B2A'].parameters()),
-                                       lr=self.args.lr, betas=(0.5, 0.999))
+        optimizer_G = torch.optim.Adam(
+            itertools.chain(models['netG_A2B'].parameters(), models['netG_B2A'].parameters()),
+            lr=self.args.lr, betas=(0.5, 0.999))
         optimizer_D_A = torch.optim.Adam(models['netD_A'].parameters(), lr=self.args.lr, betas=(0.5, 0.999))
         optimizer_D_B = torch.optim.Adam(models['netD_B'].parameters(), lr=self.args.lr, betas=(0.5, 0.999))
 
@@ -140,8 +141,9 @@ class Trainer:
         self.loss_dict = dict(criterion_GAN=criterion_GAN, criterion_cycle=criterion_cycle,
                               criterion_identity=criterion_identity)
         self.optimizer_dict = dict(optimizer_G=optimizer_G, optimizer_D_A=optimizer_D_A, optimizer_D_B=optimizer_D_B)
-        self.lr_scheduler_dict = dict(lr_scheduler_G=lr_scheduler_G, lr_scheduler_D_A=lr_scheduler_D_A,
-                                      lr_scheduler_D_B=lr_scheduler_D_B)
+        lr_scheduler_dict = dict(lr_scheduler_G=lr_scheduler_G, lr_scheduler_D_A=lr_scheduler_D_A,
+                                 lr_scheduler_D_B=lr_scheduler_D_B)
+        return lr_scheduler_dict
 
     # 输入和目标内存分配
     def create_input_target(self):
@@ -159,8 +161,7 @@ class Trainer:
         self.target_dict = dict(target_real=target_real, target_fake=target_fake)
         self.buffer_dict = dict(fake_A_buffer=fake_A_buffer, fake_B_buffer=fake_B_buffer)
 
-
-    def _generators(self, real_dict,models):
+    def _generators(self, real_dict, models):
         self.optimizer_dict['optimizer_G'].zero_grad()
         # Identity loss
         # G_A2B(B) should equal B if real B is fed
@@ -197,7 +198,7 @@ class Trainer:
                            loss_cycle_BAB=loss_cycle_BAB)
         return loss_G_dict
 
-    def _discriminator_A(self, real_dict,models):
+    def _discriminator_A(self, real_dict, models):
         self.optimizer_dict['optimizer_D_A'].zero_grad()
         # Real loss
         pred_real = models['netD_A'](real_dict['real_A'])
@@ -213,9 +214,9 @@ class Trainer:
 
         self.optimizer_dict['optimizer_D_A'].step()
         ###################################
-        return loss_D_A,fake_A
+        return loss_D_A, fake_A
 
-    def _discriminator_B(self, real_dict,models):
+    def _discriminator_B(self, real_dict, models):
         self.optimizer_dict['optimizer_D_B'].zero_grad()
         # Real loss
         pred_real = models['netD_B'](real_dict['real_B'])
@@ -231,10 +232,10 @@ class Trainer:
 
         self.optimizer_dict['optimizer_D_B'].step()
         ###################################
-        return loss_D_B,fake_B
+        return loss_D_B, fake_B
 
     # 一轮训练
-    def train_one_epoch(self, dataloader, models,logger):
+    def train_one_epoch(self, dataloader, models, logger):
         for i, batch in enumerate(dataloader):
             # Set model input
             real_A = Variable(self.input_dict['input_A'].copy_(batch['A']))
@@ -242,11 +243,11 @@ class Trainer:
             real_dict = dict(real_A=real_A, real_B=real_B)
 
             ###### Generators A2B and B2A ######
-            loss_G_dict = self._generators(real_dict,models)
+            loss_G_dict = self._generators(real_dict, models)
             ###### Discriminator A ######
-            loss_D_A ,fake_A= self._discriminator_A(real_dict,models)
+            loss_D_A, fake_A = self._discriminator_A(real_dict, models)
             ###### Discriminator B ######
-            loss_D_B ,fake_B= self._discriminator_B(real_dict,models)
+            loss_D_B, fake_B = self._discriminator_B(real_dict, models)
             # 打包损失
             loss_dict = dict(loss_G_dict=loss_G_dict, loss_D_A=loss_D_A, loss_D_B=loss_D_B)
 
@@ -264,17 +265,25 @@ class Trainer:
         return loss_dict
 
     # 写入tensorboard
-    # def write_tb(self, ):
-    #     # 将损失写入tensorboard
-    #     self.tb.add_scalar('mean_loss', mean_loss, epoch)
-    #     # 将准确个数写入tensorboard
-    #     self.tb.add_scalar('lr', lr, epoch)
-    #     # 将混淆矩阵写入tensorboard:acc,
-    #     self.tb.add_scalar('acc_global', float(confmat.acc_global), epoch)
-    #     self.tb.add_scalar('dice', float(dice), epoch)
-    #     self.tb.add_scalar('mean_iou', float(confmat.mean_iu), epoch)
-    #     if self.args.open_tensorboard is True:
-    #         self.tb.add_graph(model, train_loader)
+    def write_tb(self, epoch, loss_dict,lr_scheduler_dict,models):
+        # 将损失写入tensorboard
+        self.tb.add_scalar('loss_G', loss_dict['loss_G_dict']['loss_G'], epoch)
+        self.tb.add_scalar('loss_G_identity', loss_dict['loss_G_dict']['loss_identity_A'] + loss_dict['loss_G_dict']['loss_identity_B'], epoch)
+        self.tb.add_scalar('loss_G_GAN', loss_dict['loss_G_dict']['loss_GAN_A2B'] + loss_dict['loss_G_dict']['loss_GAN_B2A'], epoch)
+        self.tb.add_scalar('loss_G_cycle', loss_dict['loss_G_dict']['loss_cycle_ABA'] + loss_dict['loss_G_dict']['loss_cycle_BAB'], epoch)
+        self.tb.add_scalar('loss_D', loss_dict['loss_D_A'] + loss_dict['loss_D_B'], epoch)
+        # 将学习率写入tensorboard
+        self.tb.add_scalar('lr_G', lr_scheduler_dict['lr_scheduler_G'].get_lr()[0], epoch)
+        self.tb.add_scalar('lr_D_A', lr_scheduler_dict['lr_scheduler_D_A'].get_lr()[0], epoch)
+        self.tb.add_scalar('lr_D_B', lr_scheduler_dict['lr_scheduler_D_B'].get_lr()[0], epoch)
+
+        if True:
+        # if self.args.open_tensorboard is True:
+            self.tb.add_graph(models['netG_A2B'], self.input_dict['input_A'])
+            self.tb.add_graph(models['netG_B2A'], self.input_dict['input_B'])
+            self.tb.add_graph(models['netD_A'], self.input_dict['input_A'])
+            self.tb.add_graph(models['netD_B'], self.input_dict['input_B'])
+
 
     # 模型训练
     def run(self):
@@ -284,7 +293,7 @@ class Trainer:
         # 模型创建
         models = self.create_model()
         # 优化器创建
-        self.create_optimizer(models)
+        lr_scheduler_dict = self.create_optimizer(models)
         # 输入和目标内存分配
         self.create_input_target()
         # Loss plot
@@ -292,13 +301,13 @@ class Trainer:
         # 模型训练
         for epoch in range(self.args.epoch, self.args.n_epochs):
             # 训练
-            loss_dict=self.train_one_epoch(dataloader, models,logger)
+            loss_dict = self.train_one_epoch(dataloader, models, logger)
             # Update learning rates
-            self.lr_scheduler_dict['lr_scheduler_G'].step()
-            self.lr_scheduler_dict['lr_scheduler_D_A'].step()
-            self.lr_scheduler_dict['lr_scheduler_D_B'].step()
+            lr_scheduler_dict['lr_scheduler_G'].step()
+            lr_scheduler_dict['lr_scheduler_D_A'].step()
+            lr_scheduler_dict['lr_scheduler_D_B'].step()
             # 保存日志
-            # self.write_tb(epoch, loss_dict)
+            self.write_tb(epoch, loss_dict,lr_scheduler_dict,models)
 
             # 保存模型
             torch.save(models['netG_A2B'].state_dict(), f"{log_dir}/netG_A2B.pth")
