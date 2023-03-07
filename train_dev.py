@@ -24,19 +24,23 @@ from datasets import ImageDataset
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-name', default="cycleGAN", type=str, help="选择模型")
-    parser.add_argument('--epoch', type=int, default=0, help='starting epoch')
-    parser.add_argument('--n_epochs', type=int, default=10, help='number of epochs of training')
+    parser.add_argument('--n_epochs', type=int, default=10, help='终止世代')
     parser.add_argument('--batchSize', type=int, default=2, help='size of the batches')
     parser.add_argument('--dataroot', type=str, default=r'data\cap_b2cap_g', help='root directory of the dataset')
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
-    parser.add_argument('--decay_epoch', type=int, default=5,
-                        help='epoch to start linearly decaying the learning rate to 0')
-    parser.add_argument('--size', type=int, default=256, help='size of the data crop (squared assumed)')
+    parser.add_argument('--decay_epoch', type=int, default=5, help='开始线性衰减学习率为 0 的世代')
+    parser.add_argument('--size', type=int, default=256, help='数据裁剪的大小（假设为平方）')
+    # 其他功能
+    parser.add_argument('--pretrained', type=str, default='output_ori', help='pretrained model path')
+    parser.add_argument('--open-tensorboard', default=False, type=bool, help='使用tensorboard保存网络结构')
+    # 默认
+    parser.add_argument('--save_epoch_freq', type=int, default=10, help='保存频率')
+    parser.add_argument('--epoch', type=int, default=0, help='起始世代')
     parser.add_argument('--input_nc', type=int, default=3, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=3, help='number of channels of output data')
     parser.add_argument('--cuda', action='store_true', default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=0, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--pretrained', type=str, default='output_ori', help='pretrained model path')
+
     opt = parser.parse_args()
     print(opt)
     if torch.cuda.is_available() and not opt.cuda:
@@ -46,7 +50,6 @@ def parse_args():
 
 class Trainer:
     def __init__(self, args):
-        self.models = None
         self.args = args
         self.logger = None
 
@@ -265,20 +268,20 @@ class Trainer:
         return loss_dict
 
     # 写入tensorboard
-    def write_tb(self, epoch, loss_dict,lr_scheduler_dict,models):
+    def _write_tb(self, epoch, loss_dict, lr_scheduler_dict, models):
         # 将损失写入tensorboard
         self.tb.add_scalar('loss_G', loss_dict['loss_G_dict']['loss_G'], epoch)
         self.tb.add_scalar('loss_G_identity', loss_dict['loss_G_dict']['loss_identity_A'] + loss_dict['loss_G_dict']['loss_identity_B'], epoch)
         self.tb.add_scalar('loss_G_GAN', loss_dict['loss_G_dict']['loss_GAN_A2B'] + loss_dict['loss_G_dict']['loss_GAN_B2A'], epoch)
         self.tb.add_scalar('loss_G_cycle', loss_dict['loss_G_dict']['loss_cycle_ABA'] + loss_dict['loss_G_dict']['loss_cycle_BAB'], epoch)
-        self.tb.add_scalar('loss_D', loss_dict['loss_D_A'] + loss_dict['loss_D_B'], epoch)
+        self.tb.add_scalar('loss_D_A', loss_dict['loss_D_A'] , epoch)
+        self.tb.add_scalar('loss_D_B', loss_dict['loss_D_B'] , epoch)
         # 将学习率写入tensorboard
         self.tb.add_scalar('lr_G', lr_scheduler_dict['lr_scheduler_G'].get_last_lr()[0], epoch)
         self.tb.add_scalar('lr_D_A', lr_scheduler_dict['lr_scheduler_D_A'].get_last_lr()[0], epoch)
         self.tb.add_scalar('lr_D_B', lr_scheduler_dict['lr_scheduler_D_B'].get_last_lr()[0], epoch)
 
-        if True:
-        # if self.args.open_tensorboard is True:
+        if self.args.open_tensorboard is True:
             self.tb.add_graph(models['netG_A2B'], self.input_dict['input_A'])
             self.tb.add_graph(models['netG_B2A'], self.input_dict['input_B'])
             self.tb.add_graph(models['netD_A'], self.input_dict['input_A'])
@@ -299,6 +302,7 @@ class Trainer:
         # Loss plot
         logger = Logger(self.args.n_epochs, len(dataloader))
         # 模型训练
+        best_loss=[2]*4
         for epoch in range(self.args.epoch, self.args.n_epochs):
             # 训练
             loss_dict = self.train_one_epoch(dataloader, models, logger)
@@ -307,13 +311,26 @@ class Trainer:
             lr_scheduler_dict['lr_scheduler_D_A'].step()
             lr_scheduler_dict['lr_scheduler_D_B'].step()
             # 保存日志
-            self.write_tb(epoch, loss_dict,lr_scheduler_dict,models)
+            self._write_tb(epoch, loss_dict, lr_scheduler_dict, models)
 
             # 保存模型
-            torch.save(models['netG_A2B'].state_dict(), f"{log_dir}/netG_A2B.pth")
-            torch.save(models['netG_B2A'].state_dict(), f"{log_dir}/netG_B2A.pth")
-            torch.save(models['netD_A'].state_dict(), f"{log_dir}/netD_A.pth")
-            torch.save(models['netD_B'].state_dict(), f"{log_dir}/netD_B.pth")
+            if epoch % self.args.save_epoch == 0 and epoch != self.args.n_epochs - 1:
+                torch.save(models['netG_A2B'].state_dict(), f"{log_dir}/netG_A2B.pth")
+                torch.save(models['netG_B2A'].state_dict(), f"{log_dir}/netG_B2A.pth")
+                torch.save(models['netD_A'].state_dict(), f"{log_dir}/netD_A.pth")
+                torch.save(models['netD_B'].state_dict(), f"{log_dir}/netD_B.pth")
+            elif loss_dict['loss_G_dict']['loss_GAN_A2B'] < best_loss[0]:
+                best_loss[0] = loss_dict['loss_G_dict']['loss_GAN_A2B']
+                torch.save(models['netG_A2B'].state_dict(), f"{log_dir}/netG_A2B.pth")
+            elif loss_dict['loss_G_dict']['loss_GAN_B2A'] < best_loss[1]:
+                best_loss[1] = loss_dict['loss_G_dict']['loss_GAN_B2A']
+                torch.save(models['netG_B2A'].state_dict(), f"{log_dir}/netG_B2A.pth")
+            elif loss_dict['loss_D_A'] < best_loss[2]:
+                best_loss[2] = loss_dict['loss_G_dict']['loss_G']
+                torch.save(models['netD_A'].state_dict(), f"{log_dir}/netD_A.pth")
+            elif loss_dict['loss_D_B'] < best_loss[3]:
+                best_loss[3] = loss_dict['loss_G_dict']['loss_G']
+                torch.save(models['netD_B'].state_dict(), f"{log_dir}/netD_B.pth")
 
 
 if __name__ == '__main__':
