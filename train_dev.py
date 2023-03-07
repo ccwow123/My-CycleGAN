@@ -142,7 +142,6 @@ class Trainer:
         self.optimizer_dict = dict(optimizer_G=optimizer_G, optimizer_D_A=optimizer_D_A, optimizer_D_B=optimizer_D_B)
         self.lr_scheduler_dict = dict(lr_scheduler_G=lr_scheduler_G, lr_scheduler_D_A=lr_scheduler_D_A,
                                       lr_scheduler_D_B=lr_scheduler_D_B)
-        return self.loss_dict, self.optimizer_dict, self.lr_scheduler_dict
 
     # 输入和目标内存分配
     def create_input_target(self):
@@ -159,7 +158,7 @@ class Trainer:
         self.input_dict = dict(input_A=input_A, input_B=input_B)
         self.target_dict = dict(target_real=target_real, target_fake=target_fake)
         self.buffer_dict = dict(fake_A_buffer=fake_A_buffer, fake_B_buffer=fake_B_buffer)
-        return self.input_dict, self.target_dict, self.buffer_dict
+
 
     def _generators(self, real_dict,models):
         self.optimizer_dict['optimizer_G'].zero_grad()
@@ -248,8 +247,8 @@ class Trainer:
             loss_D_A ,fake_A= self._discriminator_A(real_dict,models)
             ###### Discriminator B ######
             loss_D_B ,fake_B= self._discriminator_B(real_dict,models)
+            # 打包损失
             loss_dict = dict(loss_G_dict=loss_G_dict, loss_D_A=loss_D_A, loss_D_B=loss_D_B)
-            fake_dict = dict(fake_A=fake_A, fake_B=fake_B)
 
             # 记录损失
             loss_G = loss_dict['loss_G_dict']['loss_G']
@@ -260,34 +259,22 @@ class Trainer:
             # Progress report (http://localhost:8097)
             logger.log(losses={'loss_G': loss_G, 'loss_G_identity': loss_G_identity, 'loss_G_GAN': loss_G_GAN,
                                'loss_G_cycle': loss_G_cycle, 'loss_D': loss_D},
-                       images={'real_A': real_dict['real_A'], 'real_B': real_dict['real_B'],
-                               'fake_A': fake_dict['fake_A'], 'fake_B': fake_dict['fake_B']})
+                       images={'real_A': real_A, 'real_B': real_B, 'fake_A': fake_A, 'fake_B': fake_B})
 
-        return loss_dict, real_dict,fake_dict
+        return loss_dict
 
     # 写入tensorboard
-    def write_tb(self, mean_loss, lr, confmat, dice, epoch, model, train_loader):
-        # 将损失写入tensorboard
-        self.tb.add_scalar('mean_loss', mean_loss, epoch)
-        # 将准确个数写入tensorboard
-        self.tb.add_scalar('lr', lr, epoch)
-        # 将混淆矩阵写入tensorboard:acc,
-        self.tb.add_scalar('acc_global', float(confmat.acc_global), epoch)
-        self.tb.add_scalar('dice', float(dice), epoch)
-        self.tb.add_scalar('mean_iou', float(confmat.mean_iu), epoch)
-        if self.args.open_tensorboard is True:
-            self.tb.add_graph(model, train_loader)
-
-    # 写入日志
-    def write_log(self, epoch, mean_loss, lr, val_info, dice):
-        with open(self.results_file, "a") as f:
-            # 记录每个epoch对应的train_loss、lr以及验证集各指标
-            train_info = f"[epoch: {epoch}]\n" \
-                         f"train_loss: {mean_loss:.4f}\n" \
-                         f"lr: {lr:.6f}\n" \
-                         f"dice coefficient: {dice:.3f}\n"
-
-            f.write(train_info + val_info + '\n' + str(self.hyp) + "\n\n")
+    # def write_tb(self, ):
+    #     # 将损失写入tensorboard
+    #     self.tb.add_scalar('mean_loss', mean_loss, epoch)
+    #     # 将准确个数写入tensorboard
+    #     self.tb.add_scalar('lr', lr, epoch)
+    #     # 将混淆矩阵写入tensorboard:acc,
+    #     self.tb.add_scalar('acc_global', float(confmat.acc_global), epoch)
+    #     self.tb.add_scalar('dice', float(dice), epoch)
+    #     self.tb.add_scalar('mean_iou', float(confmat.mean_iu), epoch)
+    #     if self.args.open_tensorboard is True:
+    #         self.tb.add_graph(model, train_loader)
 
     # 模型训练
     def run(self):
@@ -305,27 +292,19 @@ class Trainer:
         # 模型训练
         for epoch in range(self.args.epoch, self.args.n_epochs):
             # 训练
-            loss_dict,real_dict,fake_dict = self.train_one_epoch(dataloader, models,logger)
-            # # 记录损失
-            # loss_G = loss_dict['loss_G_dict']['loss_G']
-            # loss_G_identity = loss_dict['loss_G_dict']['loss_identity_A'] + loss_dict['loss_G_dict']['loss_identity_B']
-            # loss_G_GAN = loss_dict['loss_G_dict']['loss_GAN_A2B'] + loss_dict['loss_G_dict']['loss_GAN_B2A']
-            # loss_G_cycle = loss_dict['loss_G_dict']['loss_cycle_ABA'] + loss_dict['loss_G_dict']['loss_cycle_BAB']
-            # loss_D =loss_dict['loss_D_A'] + loss_dict['loss_D_B']
-            # # Progress report (http://localhost:8097)
-            # logger.log(losses={'loss_G': loss_G, 'loss_G_identity': loss_G_identity,'loss_G_GAN': loss_G_GAN,
-            #                     'loss_G_cycle': loss_G_cycle, 'loss_D': loss_D},
-            #            images={'real_A': real_dict['real_A'], 'real_B': real_dict['real_B'],
-            #                    'fake_A': fake_dict['fake_A'], 'fake_B': fake_dict['fake_B']})
-        # Update learning rates
-        self.lr_scheduler_dict['lr_scheduler_G'].step()
-        self.lr_scheduler_dict['lr_scheduler_D_A'].step()
-        self.lr_scheduler_dict['lr_scheduler_D_B'].step()
-        # Save models checkpoints
-        torch.save(models['netG_A2B'].state_dict(), f"{log_dir}/netG_A2B.pth")
-        torch.save(models['netG_B2A'].state_dict(), f"{log_dir}/netG_B2A.pth")
-        torch.save(models['netD_A'].state_dict(), f"{log_dir}/netD_A.pth")
-        torch.save(models['netD_B'].state_dict(), f"{log_dir}/netD_B.pth")
+            loss_dict=self.train_one_epoch(dataloader, models,logger)
+            # Update learning rates
+            self.lr_scheduler_dict['lr_scheduler_G'].step()
+            self.lr_scheduler_dict['lr_scheduler_D_A'].step()
+            self.lr_scheduler_dict['lr_scheduler_D_B'].step()
+            # 保存日志
+            # self.write_tb(epoch, loss_dict)
+
+            # 保存模型
+            torch.save(models['netG_A2B'].state_dict(), f"{log_dir}/netG_A2B.pth")
+            torch.save(models['netG_B2A'].state_dict(), f"{log_dir}/netG_B2A.pth")
+            torch.save(models['netD_A'].state_dict(), f"{log_dir}/netD_A.pth")
+            torch.save(models['netD_B'].state_dict(), f"{log_dir}/netD_B.pth")
 
 
 if __name__ == '__main__':
