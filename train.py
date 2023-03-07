@@ -2,6 +2,7 @@
 
 import argparse
 import itertools
+import os.path
 
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
@@ -19,16 +20,17 @@ from datasets import ImageDataset
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', type=int, default=0, help='starting epoch')
-parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs of training')
+parser.add_argument('--n_epochs', type=int, default=10, help='number of epochs of training')
 parser.add_argument('--batchSize', type=int, default=2, help='size of the batches')
 parser.add_argument('--dataroot', type=str, default=r'data\cap_b2cap_g', help='root directory of the dataset')
 parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
-parser.add_argument('--decay_epoch', type=int, default=100, help='epoch to start linearly decaying the learning rate to 0')
+parser.add_argument('--decay_epoch', type=int, default=5, help='epoch to start linearly decaying the learning rate to 0')
 parser.add_argument('--size', type=int, default=256, help='size of the data crop (squared assumed)')
 parser.add_argument('--input_nc', type=int, default=3, help='number of channels of input data')
 parser.add_argument('--output_nc', type=int, default=3, help='number of channels of output data')
 parser.add_argument('--cuda', action='store_true',default=True, help='use GPU computation')
 parser.add_argument('--n_cpu', type=int, default=0, help='number of cpu threads to use during batch generation')
+parser.add_argument('pretrained',type=str,default=r'output',help='pretrained model path')
 opt = parser.parse_args()
 print(opt)
 
@@ -52,6 +54,15 @@ netG_A2B.apply(weights_init_normal)
 netG_B2A.apply(weights_init_normal)
 netD_A.apply(weights_init_normal)
 netD_B.apply(weights_init_normal)
+if opt.pretrained:
+    # pretrained_path = os.path.join()
+    # 加载预训练权重
+    netG_A2B.load_state_dict(torch.load(r'output/netG_A2B.pth'))
+    netG_B2A.load_state_dict(torch.load(r'output/netG_B2A.pth'))
+    netD_A.load_state_dict(torch.load(r'output/netD_A.pth'))
+    netD_B.load_state_dict(torch.load(r'output/netD_B.pth'))
+    print('加载预训练权重成功')
+
 
 # Lossess
 criterion_GAN = torch.nn.MSELoss()
