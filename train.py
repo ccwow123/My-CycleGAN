@@ -11,10 +11,10 @@ import torch
 
 from utils.models import Generator
 from utils.models import Discriminator
-from utils import ReplayBuffer
-from utils import LambdaLR
-from utils import Logger
-from utils import weights_init_normal
+from utils.utils import ReplayBuffer
+from utils.utils import LambdaLR
+from utils.utils import Logger
+from utils.utils import weights_init_normal
 from utils.datasets import ImageDataset
 
 parser = argparse.ArgumentParser()
