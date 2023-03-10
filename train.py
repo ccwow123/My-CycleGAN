@@ -2,7 +2,6 @@
 
 import argparse
 import itertools
-import os.path
 
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
@@ -10,13 +9,13 @@ from torch.autograd import Variable
 from PIL import Image
 import torch
 
-from models import Generator
-from models import Discriminator
+from utils.models import Generator
+from utils.models import Discriminator
 from utils import ReplayBuffer
 from utils import LambdaLR
 from utils import Logger
 from utils import weights_init_normal
-from datasets import ImageDataset
+from utils.datasets import ImageDataset
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', type=int, default=0, help='starting epoch')

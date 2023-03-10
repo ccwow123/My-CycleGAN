@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 
 import argparse
-import sys
 import os
 
 import torchvision.transforms as transforms
@@ -10,8 +9,8 @@ from torch.utils.data import DataLoader
 from torch.autograd import Variable
 import torch
 
-from models import Generator
-from datasets import ImageDataset
+from utils.models import Generator
+from utils.datasets import ImageDataset
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 '''

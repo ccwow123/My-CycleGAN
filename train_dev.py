@@ -7,18 +7,17 @@ import os.path
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
-from PIL import Image
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import datetime
 
-from models import Generator
-from models import Discriminator
-from utils import ReplayBuffer
-from utils import LambdaLR
-from utils import Logger
-from utils import weights_init_normal
-from datasets import ImageDataset
+from utils.models import Generator
+from utils.models import Discriminator
+from utils.utils import ReplayBuffer
+from utils.utils import LambdaLR
+from utils.utils import Logger
+from utils.utils import weights_init_normal
+from utils.datasets import ImageDataset
 
 
 def parse_args():
