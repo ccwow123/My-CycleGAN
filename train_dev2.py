@@ -23,18 +23,18 @@ from mytools import *
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-name', default="cycleGAN", type=str, help="选择模型")
-    parser.add_argument('--n_epochs', type=int, default=300, help='终止世代')
-    parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
-    parser.add_argument('--dataroot', type=str, default=r'data\cap_b2cap_g', help='root directory of the dataset')
+    parser.add_argument('--dataroot', type=str, default=r'data\cap_b2cap_g - 副本', help='root directory of the dataset')
+    parser.add_argument('--n_epochs', type=int, default=10, help='终止世代')
+    parser.add_argument('--decay_epoch', type=int, default=1, help='开始线性衰减学习率为 0 的世代')
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
-    parser.add_argument('--decay_epoch', type=int, default=100, help='开始线性衰减学习率为 0 的世代')
-    parser.add_argument('--size', type=int, default=256, help='数据裁剪的大小（假设为平方）')
+    parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
+    parser.add_argument('--size', type=int, default=32, help='数据裁剪的大小（假设为平方）')
     # 其他功能
-    parser.add_argument('--pretrained', type=str, default='output_ori', help='pretrained model path')
+    parser.add_argument('--pretrained', type=str, default='logs/03-14 15_58_39-cycleGAN', help='pretrained model path')
     parser.add_argument('--open-tensorboard', default=False, type=bool, help='使用tensorboard保存网络结构')
     # 默认
     parser.add_argument('--save_epoch_freq', type=int, default=10, help='保存频率')
-    parser.add_argument('--epoch', type=int, default=0, help='起始世代')
+    parser.add_argument('--epoch', type=int, default=1, help='起始世代')
     parser.add_argument('--input_nc', type=int, default=3, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=3, help='number of channels of output data')
     parser.add_argument('--cuda', action='store_true', default=True, help='use GPU computation')
@@ -107,13 +107,19 @@ class Trainer(Train_base):
         criterion_cycle = torch.nn.L1Loss()
         criterion_identity = torch.nn.L1Loss()
 
-        # Optimizers & LR schedulers
+        # Optimizers
         optimizer_G = torch.optim.Adam(
             itertools.chain(models['netG_A2B'].parameters(), models['netG_B2A'].parameters()),
             lr=self.args.lr, betas=(0.5, 0.999))
         optimizer_D_A = torch.optim.Adam(models['netD_A'].parameters(), lr=self.args.lr, betas=(0.5, 0.999))
         optimizer_D_B = torch.optim.Adam(models['netD_B'].parameters(), lr=self.args.lr, betas=(0.5, 0.999))
-
+        # 加载预训练的优化器权重
+        if self.args.pretrained:
+            checkpoint = torch.load(os.path.join(self.args.pretrained, 'checkpoint.pth'))
+            optimizer_G.load_state_dict(checkpoint['optimizer_G'])
+            optimizer_D_A.load_state_dict(checkpoint['optimizer_D_A'])
+            optimizer_D_B.load_state_dict(checkpoint['optimizer_D_B'])
+            print('加载预训练优化器权重成功 {}'.format(self.args.pretrained))
 
         # 创建字典
         loss_dict = {'criterion_GAN': criterion_GAN, 'criterion_cycle': criterion_cycle,
@@ -132,6 +138,7 @@ class Trainer(Train_base):
         lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(optimizer_dict['optimizer_D_B'],
                                                              lr_lambda=LambdaLR(self.args.n_epochs, self.args.epoch,
                                                                                 self.args.decay_epoch).step)
+
         lr_dict = {'lr_scheduler_G': lr_scheduler_G, 'lr_scheduler_D_A': lr_scheduler_D_A,
                       'lr_scheduler_D_B': lr_scheduler_D_B}
         return lr_dict
@@ -269,6 +276,13 @@ class Trainer(Train_base):
             # self.tb.add_graph(models['netD_B'], self.input_dict['input_B'])
 
     def run(self):
+        # 加载检查点
+        if self.args.pretrained :
+            checkpoint = torch.load(os.path.join(self.args.pretrained, 'checkpoint.pth'))
+            self.args.epoch = checkpoint['epoch']
+            self.args.n_epochs += self.args.epoch
+            self.args.decay_epoch += self.args.epoch
+            print('已经训练： %d epoch' % self.args.epoch)
         # 输入和目标内存分配
         self.create_input_target()
         # 数据加载
@@ -280,9 +294,9 @@ class Trainer(Train_base):
         # 学习率调整
         lr_dict= self.create_lr_scheduler(optimizer_dict)
         # Visdom
-        self.logger = Logger(self.args.n_epochs, len(train_loader))
+        self.logger = Logger(self.args.epoch,self.args.n_epochs, len(train_loader))
         # 模型训练
-        for epoch in range(self.args.epoch, self.args.n_epochs):
+        for epoch in range(self.args.epoch, self.args.n_epochs+1):
             # 训练
             log_loss = self.train_one_epoch(models,train_loader,loss_dict,optimizer_dict,lr_dict)
             # Update learning rates
@@ -298,6 +312,13 @@ class Trainer(Train_base):
             torch.save(models['netG_B2A'].state_dict(), f"{self.log_dir}/netG_B2A.pth")
             torch.save(models['netD_A'].state_dict(), f"{self.log_dir}/netD_A.pth")
             torch.save(models['netD_B'].state_dict(), f"{self.log_dir}/netD_B.pth")
+            # 保存优化器及学习率
+            torch.save({
+                'epoch': self.args.n_epochs,
+                'optimizer_G': optimizer_dict['optimizer_G'].state_dict(),
+                'optimizer_D_A': optimizer_dict['optimizer_D_A'].state_dict(),
+                'optimizer_D_B': optimizer_dict['optimizer_D_B'].state_dict(),
+            }, f"{self.log_dir}/checkpoint.pth")
 
 
 

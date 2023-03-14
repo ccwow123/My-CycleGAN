@@ -24,11 +24,11 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-name', default="cycleGAN", type=str, help="选择模型")
     parser.add_argument('--n_epochs', type=int, default=10, help='终止世代')
-    parser.add_argument('--batchSize', type=int, default=2, help='size of the batches')
+    parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
     parser.add_argument('--dataroot', type=str, default=r'data\cap_b2cap_g', help='root directory of the dataset')
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
     parser.add_argument('--decay_epoch', type=int, default=5, help='开始线性衰减学习率为 0 的世代')
-    parser.add_argument('--size', type=int, default=256, help='数据裁剪的大小（假设为平方）')
+    parser.add_argument('--size', type=int, default=32, help='数据裁剪的大小（假设为平方）')
     # 其他功能
     parser.add_argument('--pretrained', type=str, default='output_ori', help='pretrained model path')
     parser.add_argument('--open-tensorboard', default=False, type=bool, help='使用tensorboard保存网络结构')
@@ -299,7 +299,7 @@ class Trainer:
         # 输入和目标内存分配
         self.create_input_target()
         # Loss plot
-        logger = Logger(self.args.n_epochs, len(dataloader))
+        logger = Logger(self.args.epoch,self.args.n_epochs, len(dataloader))
         # 模型训练
         best_loss=[2]*4
         for epoch in range(self.args.epoch, self.args.n_epochs):
