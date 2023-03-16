@@ -22,7 +22,7 @@ class ImageDataset(Dataset):
         else:
             item_B = self.transform(Image.open(self.files_B[index % len(self.files_B)]))
 
-        return {'A': item_A, 'B': item_B}
+        return {'A': item_A, 'B': item_B,'A_paths': self.files_A[index % len(self.files_A)], 'B_paths': self.files_B[index % len(self.files_B)]}
 
     def __len__(self):
         return max(len(self.files_A), len(self.files_B))

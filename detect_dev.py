@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import sys
 
 import torchvision.transforms as transforms
 from torchvision.utils import save_image
@@ -72,7 +73,7 @@ class Detecter:
         netG_B2A.eval()
         return netG_A2B, netG_B2A
 
-    def detect_func(self, batch, dataloader, i, input_A, input_B, netG_A2B, netG_B2A, save_path_A, save_path_B):
+    def detect_func(self, batch, i, input_A, input_B, netG_A2B, netG_B2A, save_path_A, save_path_B):
         # Set model input
         real_A = Variable(input_A.copy_(batch['A']))
         real_B = Variable(input_B.copy_(batch['B']))
@@ -80,8 +81,10 @@ class Detecter:
         fake_B = 0.5 * (netG_A2B(real_A).data + 1.0)#由A生成B 缺陷到正常
         fake_A = 0.5 * (netG_B2A(real_B).data + 1.0)#由B生成A 正常到缺陷
         # Save image files
-        save_image(fake_A, os.path.join(save_path_A, '%04d.png' % (i + 1)))
-        save_image(fake_B, os.path.join(save_path_B, '%04d.png' % (i + 1)))
+        save_image(fake_A, os.path.join(save_path_A, os.path.basename(batch['A_paths'][0])))
+        save_image(fake_B, os.path.join(save_path_B, os.path.basename(batch['B_paths'][0])))
+        # save_image(fake_A, os.path.join(save_path_A, '%04d.png' % (i + 1)))
+        # save_image(fake_B, os.path.join(save_path_B, '%04d.png' % (i + 1)))
         # sys.stdout.write('\rGenerated images %04d of %04d' % (i + 1, len(dataloader)))
 
 
@@ -104,13 +107,13 @@ class Detecter:
         save_path_A, save_path_B=self.create_save_path()
 
         # for i, batch in enumerate(dataloader):
-        #     self.method_name(batch, dataloader, i, input_A, input_B, netG_A2B, netG_B2A, save_path_A, save_path_B)
+        #     self.detect_func(batch, i, input_A, input_B, netG_A2B, netG_B2A, save_path_A, save_path_B)
         # sys.stdout.write('\n')
         ###################################
         # 多线程
         pool = ThreadPoolExecutor()
         for i, batch in enumerate(tqdm(dataloader)):
-            pool.submit(self.detect_func, batch, dataloader, i, input_A, input_B, netG_A2B, netG_B2A, save_path_A, save_path_B)
+            pool.submit(self.detect_func, batch, i, input_A, input_B, netG_A2B, netG_B2A, save_path_A, save_path_B)
 
 
 if __name__ == '__main__':
