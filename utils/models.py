@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -70,15 +71,15 @@ class Discriminator(nn.Module):
                     nn.LeakyReLU(0.2, inplace=True) ]
 
         model += [  nn.Conv2d(64, 128, 4, stride=2, padding=1),
-                    nn.InstanceNorm2d(128), 
+                    nn.InstanceNorm2d(128),
                     nn.LeakyReLU(0.2, inplace=True) ]
 
         model += [  nn.Conv2d(128, 256, 4, stride=2, padding=1),
-                    nn.InstanceNorm2d(256), 
+                    nn.InstanceNorm2d(256),
                     nn.LeakyReLU(0.2, inplace=True) ]
 
         model += [  nn.Conv2d(256, 512, 4, padding=1),
-                    nn.InstanceNorm2d(512), 
+                    nn.InstanceNorm2d(512),
                     nn.LeakyReLU(0.2, inplace=True) ]
 
         # FCN classification layer
@@ -90,3 +91,15 @@ class Discriminator(nn.Module):
         x =  self.model(x)
         # Average pooling and flatten
         return F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
+
+if __name__ == '__main__':
+    # Test the model
+    # x = torch.randn((1, 3, 512, 512))
+    # G = Generator(3, 1)
+    # y = G(x)
+    # print('y.shape:' , y.shape)
+
+    y = torch.randn((1, 3, 512, 512))
+    D = Discriminator(3)
+    out = D(y)
+    print(out.shape)

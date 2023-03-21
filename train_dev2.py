@@ -10,25 +10,25 @@ from torch.autograd import Variable
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import datetime
-
-from utils.models import Generator
-from utils.models import Discriminator
-from utils.utils import ReplayBuffer
-from utils.utils import LambdaLR
-from utils.utils import Logger
-from utils.utils import weights_init_normal
-from utils.datasets import ImageDataset
+from utils import *
+# from utils.models import Generator
+# from utils.models import Discriminator
+# from utils.utils import ReplayBuffer
+# from utils.utils import LambdaLR
+# from utils.utils import Logger
+# from utils.utils import weights_init_normal
+# from utils.datasets import ImageDataset
 from mytools import *
 # python -m visdom.server
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model-name', default="cycleGAN", type=str, help="选择模型")
-    parser.add_argument('--n_epochs', type=int, default=700, help='终止世代')
+    parser.add_argument('--model_name', default="cycleGAN", choices=['cycleGAN','cycleGAN_ex'], help="选择模型")
+    parser.add_argument('--n_epochs', type=int, default=2, help='终止世代')
     parser.add_argument('--batchSize', type=int, default=2, help='size of the batches')
-    parser.add_argument('--dataroot', type=str, default=r'data\cap2seg', help='root directory of the dataset')
+    parser.add_argument('--dataroot', type=str, default=r'data\cap_b2cap_g - 副本', help='root directory of the dataset')
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
-    parser.add_argument('--decay_epoch', type=int, default=10, help='开始线性衰减学习率为 0 的世代')
-    parser.add_argument('--size', type=int, default=256, help='数据裁剪的大小（假设为平方）')
+    parser.add_argument('--decay_epoch', type=int, default=1, help='开始线性衰减学习率为 0 的世代')
+    parser.add_argument('--size', type=int, default=128, help='数据裁剪的大小（假设为平方）')
     # 其他功能
     parser.add_argument('--pretrained', type=str, default='', help='pretrained model path')
     parser.add_argument('--open-tensorboard', default=False, type=bool, help='使用tensorboard保存网络结构')
@@ -77,10 +77,16 @@ class Trainer():
     # 创建模型
     def _create_model(self):
         # Networks
-        netG_A2B = Generator(self.args.input_nc, self.args.output_nc)
-        netG_B2A = Generator(self.args.output_nc, self.args.input_nc)
-        netD_A = Discriminator(self.args.input_nc)
-        netD_B = Discriminator(self.args.output_nc)
+        if self.model_name == 'cycleGAN':
+            netG_A2B = Generator(self.args.input_nc, self.args.output_nc)
+            netG_B2A = Generator(self.args.output_nc, self.args.input_nc)
+            netD_A = Discriminator(self.args.input_nc)
+            netD_B = Discriminator(self.args.output_nc)
+        elif self.model_name == 'cycleGAN_ex':
+            netG_A2B = GeneratorEx(self.args.input_nc, self.args.output_nc)
+            netG_B2A = GeneratorEx(self.args.output_nc, self.args.input_nc)
+            netD_A = DiscriminatorEx(self.args.input_nc)
+            netD_B = DiscriminatorEx(self.args.output_nc)
 
         if self.args.cuda:
             netG_A2B.cuda()
@@ -300,7 +306,7 @@ class Trainer():
         # 学习率调整
         lr_dict= self.create_lr_scheduler(optimizer_dict)
         # Visdom
-        self.logger = Logger(self.args.n_epochs, len(train_loader))
+        self.logger = Logger(self.args.n_epochs, len(train_loader),len(train_loader))
         # 模型训练
         for epoch in range(self.args.epoch, self.args.n_epochs):
             # 训练

@@ -61,8 +61,12 @@ class Generator(nn.Module):
         self.up1 = Up(channles[0],channles[0])
 
 
-        self.out = nn.Conv2d(channles[0], output_nc, kernel_size=1, stride=1, padding=0)
+        # self.out = nn.Conv2d(channles[0], output_nc, kernel_size=1, stride=1, padding=0)
+        out= [  nn.ReflectionPad2d(3),
+                    nn.Conv2d(channles[0], output_nc, 7),
+                    nn.Tanh() ]
 
+        self.out = nn.Sequential(*out)
     def forward(self, x):
         x1 = self.con_1(x)
         x2 = self.con_2(x1)
@@ -93,40 +97,34 @@ class Generator(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self, input_nc):
         super(Discriminator, self).__init__()
-
-        # A bunch of convolutions one after another
-        model = [   nn.Conv2d(input_nc, 64, 4, stride=2, padding=1),
+        #          0, 1, 2, 3
+        channels = [64,128,256,512]
+        con_1 = [   nn.Conv2d(input_nc, channels[0], 3, stride=2, padding=1),
                     nn.LeakyReLU(0.2, inplace=True) ]
-
-        model += [  nn.Conv2d(64, 128, 4, stride=2, padding=1),
-                    nn.InstanceNorm2d(128), 
-                    nn.LeakyReLU(0.2, inplace=True) ]
-
-        model += [  nn.Conv2d(128, 256, 4, stride=2, padding=1),
-                    nn.InstanceNorm2d(256), 
-                    nn.LeakyReLU(0.2, inplace=True) ]
-
-        model += [  nn.Conv2d(256, 512, 4, padding=1),
-                    nn.InstanceNorm2d(512), 
-                    nn.LeakyReLU(0.2, inplace=True) ]
-
-        # FCN classification layer
-        model += [nn.Conv2d(512, 1, 4, padding=1)]
-
-        self.model = nn.Sequential(*model)
-
+        self.con_1 = nn.Sequential(*con_1)
+        self.con_2 = BaseBlock(channels[0],channels[1],stride=2)
+        self.con_3 = BaseBlock(channels[1],channels[2],stride=2)
+        self.con_4 = BaseBlock(channels[2],channels[3],stride=2)
+        self.con_5 = BaseBlock(channels[3],channels[3],stride=1)
+        self.out = nn.Conv2d(channels[3], 1, 3, stride=1, padding=1)
     def forward(self, x):
-        x =  self.model(x)
-        # Average pooling and flatten
+        x = self.con_1(x)
+        x = self.con_2(x)
+        x = self.con_3(x)
+        x = self.con_4(x)
+        x = self.con_5(x)
+        x = self.out(x)
         return F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
+
 
 if __name__ == '__main__':
     # Test the model
-    x = torch.randn((1, 3, 512, 512))
-    G = Generator(3, 1)
-    y = G(x)
-    print('y.shape:' , y.shape)
+    # x = torch.randn((1, 3, 512, 512))
+    # G = Generator(3, 1)
+    # y = G(x)
+    # print('y.shape:' , y.shape)
 
-    # D = Discriminator(3)
-    # out = D(y)
-    # print(out.shape)
+    y = torch.randn((1, 3, 512, 512))
+    D = Discriminator(3)
+    out = D(y)
+    print(out.shape)
