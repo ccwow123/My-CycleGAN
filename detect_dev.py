@@ -10,8 +10,9 @@ from torch.utils.data import DataLoader
 from torch.autograd import Variable
 import torch
 
-from utils.models import Generator
-from utils.datasets import ImageDataset
+# from utils.models import Generator
+# from utils.datasets import ImageDataset
+from utils import *
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 '''
@@ -29,6 +30,7 @@ def parser_args():
     parser.add_argument('--n_cpu', type=int, default=0, help='number of cpu threads to use during batch generation')
     parser.add_argument('--generator_A2B', type=str, default='output_ori/netG_A2B.pth', help='A2B generator checkpoint file')
     parser.add_argument('--generator_B2A', type=str, default='output_ori/netG_B2A.pth', help='B2A generator checkpoint file')
+    parser.add_argument('--model_name', default="cycleGAN_ex", choices=['cycleGAN', 'cycleGAN_ex'], help="选择模型")
     opt = parser.parse_args()
     print(opt)
 
@@ -39,6 +41,7 @@ def parser_args():
 class Detecter:
     def __init__(self, args):
         self.args =args
+        self.model_name = args.model_name
 
     def create_save_path(self):
         save_path = os.path.join('output',self.args.dataroot.split('/')[-1])
@@ -60,8 +63,18 @@ class Detecter:
 
     def create_models(self):
         # Networks
-        netG_A2B = Generator(self.args.input_nc, self.args.output_nc)
-        netG_B2A = Generator(self.args.output_nc, self.args.input_nc)
+        # netG_A2B = Generator(self.args.input_nc, self.args.output_nc)
+        # netG_B2A = Generator(self.args.output_nc, self.args.input_nc)
+        if self.model_name == 'cycleGAN':
+            netG_A2B = Generator(self.args.input_nc, self.args.output_nc)
+            netG_B2A = Generator(self.args.output_nc, self.args.input_nc)
+            netD_A = Discriminator(self.args.input_nc)
+            netD_B = Discriminator(self.args.output_nc)
+        elif self.model_name == 'cycleGAN_ex':
+            netG_A2B = GeneratorEx(self.args.input_nc, self.args.output_nc)
+            netG_B2A = GeneratorEx(self.args.output_nc, self.args.input_nc)
+            netD_A = DiscriminatorEx(self.args.input_nc)
+            netD_B = DiscriminatorEx(self.args.output_nc)
         if self.args.cuda:
             netG_A2B.cuda()
             netG_B2A.cuda()
