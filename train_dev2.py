@@ -1,5 +1,4 @@
-#!/usr/bin/python3
-
+# ! python -m visdom.server
 import argparse
 import itertools
 import os.path
@@ -19,7 +18,7 @@ from utils import *
 # from utils.utils import weights_init_normal
 # from utils.datasets import ImageDataset
 from mytools import *
-# python -m visdom.server
+#python -m visdom.server
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', default="cycleGAN_ex", choices=['cycleGAN','cycleGAN_ex'], help="选择模型")
@@ -287,12 +286,20 @@ class Trainer():
         self.tb.add_scalar('lr_G', lr_dict['lr_scheduler_G'].get_last_lr()[0], i)
         self.tb.add_scalar('lr_D_A', lr_dict['lr_scheduler_D_A'].get_last_lr()[0], i)
         self.tb.add_scalar('lr_D_B', lr_dict['lr_scheduler_D_B'].get_last_lr()[0], i)
-        # 将模型写入tensorboard
-        if self.args.open_tensorboard is True:
-            self.tb.add_graph(models['netG_A2B'], self.input_dict['input_A'])
-            # self.tb.add_graph(models['netG_B2A'], self.input_dict['input_B'])
-            # self.tb.add_graph(models['netD_A'], self.input_dict['input_A'])
-            # self.tb.add_graph(models['netD_B'], self.input_dict['input_B'])
+        # 保存日志
+        with open(self.results_file, "a") as f:
+            f.write('\nepoch : '+str(i)+'\n')
+            for key,item in log_loss.items():
+                f.write(key+' : '+str(item)+'\n')
+            for key,item in lr_dict.items():
+                f.write(key+' : '+str(item.get_last_lr()[0])+'\n')
+            if i == self.args.n_epochs-1:
+                cfg=vars(self.args)
+                # 分行写入到文件
+                # with open(self.results_file, "a") as f:
+                f.write('\n---cfg--- \n')
+                for key,item in cfg.items():
+                    f.write(key+' : '+str(item)+'\n')
 
     def run(self):
         # 输入和目标内存分配
