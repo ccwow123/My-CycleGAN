@@ -22,7 +22,7 @@ from mytools import *
 # python -m visdom.server
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', default="cycleGAN", choices=['cycleGAN','cycleGAN_ex'], help="选择模型")
+    parser.add_argument('--model_name', default="cycleGAN_ex", choices=['cycleGAN','cycleGAN_ex'], help="选择模型")
     parser.add_argument('--n_epochs', type=int, default=2, help='终止世代')
     parser.add_argument('--batchSize', type=int, default=2, help='size of the batches')
     parser.add_argument('--dataroot', type=str, default=r'data\cap_b2cap_g - 副本', help='root directory of the dataset')
@@ -103,6 +103,7 @@ class Trainer():
         models = {'netG_A2B': netG_A2B, 'netG_B2A': netG_B2A, 'netD_A': netD_A, 'netD_B': netD_B}
         if self.args.pretrained:
             models = self._load_pretrained_model(models)
+            print('加载预训练模型成功！')
 
         return models
     # 加载预训练模型
@@ -113,7 +114,6 @@ class Trainer():
         models['netG_B2A'].load_state_dict(torch.load(os.path.join(pretrained_path, 'netG_B2A.pth')))
         models['netD_A'].load_state_dict(torch.load(os.path.join(pretrained_path, 'netD_A.pth')))
         models['netD_B'].load_state_dict(torch.load(os.path.join(pretrained_path, 'netD_B.pth')))
-        print('加载预训练权重成功 {}'.format(pretrained_path))
         return models
     # 加载数据集
     def load_data(self):
@@ -306,7 +306,7 @@ class Trainer():
         # 学习率调整
         lr_dict= self.create_lr_scheduler(optimizer_dict)
         # Visdom
-        self.logger = Logger(self.args.n_epochs, len(train_loader),len(train_loader))
+        self.logger = Logger(self.args.n_epochs, len(train_loader))
         # 模型训练
         for epoch in range(self.args.epoch, self.args.n_epochs):
             # 训练
