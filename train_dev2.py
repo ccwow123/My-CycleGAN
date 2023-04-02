@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument('--decay_epoch', type=int, default=1, help='开始线性衰减学习率为 0 的世代')
     parser.add_argument('--size', type=int, default=128, help='数据裁剪的大小（假设为平方）')
     # 其他功能
+    parser.add_argument('--visdom', default=False, type=bool, help='是否使用visdom')
     parser.add_argument('--pretrained', type=str, default='', help='pretrained model path')
     parser.add_argument('--open-tensorboard', default=False, type=bool, help='使用tensorboard保存网络结构')
     # 默认
@@ -314,7 +315,10 @@ class Trainer():
         # 学习率调整
         lr_dict= self.create_lr_scheduler(optimizer_dict)
         # Visdom
-        self.logger = Logger(self.args.n_epochs, len(train_loader))
+        if self.args.visdom:
+            self.logger = Logger(self.args.n_epochs, len(train_loader))
+        else:
+            self.logger = Logger_noVisdom(self.args.n_epochs, len(train_loader))
         # 模型训练
         for epoch in range(self.args.epoch, self.args.n_epochs):
             # 训练
