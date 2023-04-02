@@ -118,6 +118,7 @@ class Trainer():
     def load_data(self):
         # Dataset loader
         transforms_ = [transforms.Resize(int(self.args.size * 1.12)),
+                       transforms.Grayscale(num_output_channels=3),
                        transforms.CenterCrop(self.args.size),
                        transforms.RandomHorizontalFlip(),
                        transforms.ToTensor(),
