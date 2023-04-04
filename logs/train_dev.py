@@ -24,13 +24,13 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-name', default="cycleGAN", type=str, help="选择模型")
     parser.add_argument('--n_epochs', type=int, default=10, help='终止世代')
-    parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
-    parser.add_argument('--dataroot', type=str, default=r'data\cap_b2cap_g', help='root directory of the dataset')
+    parser.add_argument('--batchSize', type=int, default=4, help='size of the batches')
+    parser.add_argument('--dataroot', type=str, default=r'data\cap_b2cap_g - 副本', help='root directory of the dataset')
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
     parser.add_argument('--decay_epoch', type=int, default=5, help='开始线性衰减学习率为 0 的世代')
     parser.add_argument('--size', type=int, default=32, help='数据裁剪的大小（假设为平方）')
     # 其他功能
-    parser.add_argument('--pretrained', type=str, default='output_ori', help='pretrained model path')
+    parser.add_argument('--pretrained', type=str, default='', help='pretrained model path')
     parser.add_argument('--open-tensorboard', default=False, type=bool, help='使用tensorboard保存网络结构')
     # 默认
     parser.add_argument('--save_epoch_freq', type=int, default=10, help='保存频率')
@@ -55,11 +55,11 @@ class Trainer:
     # 创建文件夹
     def create_folder(self):
         # 用来保存训练以及验证过程中信息
-        if not os.path.exists("logs"):
-            os.mkdir("logs")
+        if not os.path.exists(""):
+            os.mkdir("")
         # 创建时间+模型名文件夹
         time_str = datetime.datetime.now().strftime("%m-%d %H_%M_%S-")
-        log_dir = os.path.join("logs", time_str + self.args.model_name)
+        log_dir = os.path.join("", time_str + self.args.model_name)
         if not os.path.exists(log_dir):
             os.mkdir(log_dir)
         self.results_file = log_dir + "/{}_results{}.txt".format(self.args.model_name, time_str)
@@ -109,10 +109,10 @@ class Trainer:
     def load_pretrained_model(self, models):
         pretrained_path = self.args.pretrained
         # 加载预训练权重
-        models['netG_A2B'].load_state_dict(torch.load(os.path.join(pretrained_path, 'netG_A2B.pth')))
-        models['netG_B2A'].load_state_dict(torch.load(os.path.join(pretrained_path, 'netG_B2A.pth')))
-        models['netD_A'].load_state_dict(torch.load(os.path.join(pretrained_path, 'netD_A.pth')))
-        models['netD_B'].load_state_dict(torch.load(os.path.join(pretrained_path, 'netD_B.pth')))
+        models['netG_A2B'].load_state_dict(torch.load(os.path.join(pretrained_path, '../output_ori/netG_A2B.pth')))
+        models['netG_B2A'].load_state_dict(torch.load(os.path.join(pretrained_path, '../output_ori/netG_B2A.pth')))
+        models['netD_A'].load_state_dict(torch.load(os.path.join(pretrained_path, '../output_ori/netD_A.pth')))
+        models['netD_B'].load_state_dict(torch.load(os.path.join(pretrained_path, '../output_ori/netD_B.pth')))
         print('加载预训练权重成功 {}'.format(pretrained_path))
         return models
 
@@ -299,7 +299,7 @@ class Trainer:
         # 输入和目标内存分配
         self.create_input_target()
         # Loss plot
-        logger = Logger(self.args.epoch,self.args.n_epochs, len(dataloader))
+        logger = Logger(self.args.n_epochs, len(dataloader))
         # 模型训练
         best_loss=[2]*4
         for epoch in range(self.args.epoch, self.args.n_epochs):

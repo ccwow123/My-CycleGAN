@@ -19,15 +19,15 @@ from utils import *
 # from utils.datasets import ImageDataset
 from mytools import *
 #python -m visdom.server
-def parse_args():
+def parse_args(model_name):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', default="cycleGAN_ex", choices=['cycleGAN','cycleGAN_ex'], help="选择模型")
+    parser.add_argument('--model_name', default=model_name, choices=['cycleGAN','cycleGAN_ex'], help="选择模型")
     parser.add_argument('--n_epochs', type=int, default=2, help='终止世代')
-    parser.add_argument('--batchSize', type=int, default=2, help='size of the batches')
+    parser.add_argument('--batchSize', type=int, default=6, help='size of the batches')
     parser.add_argument('--dataroot', type=str, default=r'data\cap_b2cap_g - 副本', help='root directory of the dataset')
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
     parser.add_argument('--decay_epoch', type=int, default=1, help='开始线性衰减学习率为 0 的世代')
-    parser.add_argument('--size', type=int, default=128, help='数据裁剪的大小（假设为平方）')
+    parser.add_argument('--size', type=int, default=64, help='数据裁剪的大小（假设为平方）')
     # 其他功能
     parser.add_argument('--visdom', default=False, type=bool, help='是否使用visdom')
     parser.add_argument('--pretrained', type=str, default='', help='pretrained model path')
@@ -119,7 +119,7 @@ class Trainer():
     def load_data(self):
         # Dataset loader
         transforms_ = [transforms.Resize(int(self.args.size * 1.12)),
-                       transforms.Grayscale(num_output_channels=3),
+                       # transforms.Grayscale(),
                        transforms.CenterCrop(self.args.size),
                        transforms.RandomHorizontalFlip(),
                        transforms.ToTensor(),
@@ -341,7 +341,7 @@ class Trainer():
 
 if __name__ == '__main__':
     # 参数解析
-    args = parse_args()
+    args = parse_args('cycleGAN_ex')
     # 创建模型
     model = Trainer(args)
     # 模型训练
