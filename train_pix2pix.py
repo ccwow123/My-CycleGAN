@@ -25,7 +25,7 @@ import torch
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
-parser.add_argument("--n_epochs", type=int, default=10, help="number of epochs of training")
+parser.add_argument("--n_epochs", type=int, default=10000, help="number of epochs of training")
 parser.add_argument("--dataset", type=str, default=r"D:\Files\_using\good2impurity2", help="name of the dataset")
 # parser.add_argument("--dataset_name", type=str, default="good2impurity2", help="name of the dataset")
 parser.add_argument("--batch_size", type=int, default=2, help="size of the batches")
@@ -40,7 +40,7 @@ parser.add_argument("--channels", type=int, default=3, help="number of image cha
 parser.add_argument(
     "--sample_interval", type=int, default=500, help="interval between sampling of images from generators"
 )
-parser.add_argument("--checkpoint_interval", type=int, default=100, help="interval between model checkpoints")
+parser.add_argument("--checkpoint_interval", type=int, default=2000, help="多少epoch进行一次模型保存")
 opt = parser.parse_args()
 print(opt)
 opt.dataset_name=os.path.basename(opt.dataset)
@@ -221,7 +221,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
 
 
     # if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0:
-    if epoch == (epoch+1) % opt.checkpoint_interval == 0:
+    if (epoch+1) % opt.checkpoint_interval == 0:
         # Save model checkpoints
         torch.save(generator.state_dict(), "saved_models/%s/generator_%d.pth" % (opt.dataset_name, epoch+1))
         torch.save(discriminator.state_dict(), "saved_models/%s/discriminator_%d.pth" % (opt.dataset_name, epoch+1))

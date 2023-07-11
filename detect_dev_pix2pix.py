@@ -5,6 +5,7 @@ import os
 import sys
 
 import torchvision.transforms as transforms
+from PIL import Image
 from torchvision.utils import save_image
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
@@ -27,12 +28,12 @@ def parser_args():
     parser.add_argument('--dataroot', type=str, default=r'D:\Files\_using\good2impurity2', help='root directory of the dataset')
     parser.add_argument('--input_nc', type=int, default=3, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=3, help='number of channels of output data')
-    parser.add_argument('--size', type=int, default=512, help='size of the data (squared assumed)')
+    parser.add_argument("--img_height", type=int, default=256, help="size of image height")
+    parser.add_argument("--img_width", type=int, default=256, help="size of image width")
     parser.add_argument('--cuda', action='store_true',default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=0, help='number of cpu threads to use during batch generation')
     parser.add_argument('--generator', type=str, default=r'saved_models/good2impurity2/generator_1000.pth', help='A2B generator checkpoint file')
-    parser.add_argument('--generator_B2A', type=str, default=r'saved_models/good2impurity2/netG_A2B.pth', help='B2A generator checkpoint file')
-    parser.add_argument('--model_name', default="cycleGAN_ex", choices=['cycleGAN', 'cycleGAN_ex'], help="选择模型")
+    parser.add_argument('--model_name', default="cycleGAN_ex", choices=['cycleGAN', 'cycleGAN_ex'], help="选择模型")#暂时无用
     opt = parser.parse_args()
     print(opt)
 
@@ -53,7 +54,7 @@ class Detecter:
 
     def load_dataset(self):
         transforms_ = [transforms.ToTensor(),
-                       transforms.Resize((self.args.size, self.args.size)),
+                       transforms.Resize((self.args.img_height, self.args.img_width), Image.BICUBIC),
                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
         dataloader = DataLoader(ImageDataset_pix2pix(self.args.dataroot, transforms_=transforms_, mode='test'),
                                 batch_size=self.args.batchSize, shuffle=False, num_workers=self.args.n_cpu)
@@ -77,7 +78,7 @@ class Detecter:
 
         # Inputs & targets memory allocation
         Tensor = torch.cuda.FloatTensor if self.args.cuda else torch.Tensor
-        input_A = Tensor(self.args.batchSize, self.args.input_nc, self.args.size, self.args.size)
+        input_A = Tensor(self.args.batchSize, self.args.input_nc,self.args.img_height, self.args.img_width)
         # Dataset loader
         dataloader = self.load_dataset()
         ###################################
