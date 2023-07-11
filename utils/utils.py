@@ -5,7 +5,7 @@ import sys
 
 from torch.autograd import Variable
 import torch
-from visdom import Visdom
+# from visdom import Visdom
 import numpy as np
 
 def tensor2image(tensor):
@@ -15,7 +15,7 @@ def tensor2image(tensor):
     return image.astype(np.uint8)
 class Logger():
     def __init__(self, n_epochs, batches_epoch):
-        self.viz = Visdom()
+        # self.viz = Visdom()
         self.n_epochs = n_epochs
         self.batches_epoch = batches_epoch
         self.epoch = 1

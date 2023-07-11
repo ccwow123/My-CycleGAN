@@ -22,14 +22,14 @@ from tqdm import tqdm
 def parser_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
-    parser.add_argument('--dataroot', type=str, default='data/cap_b2cap_g', help='root directory of the dataset')
+    parser.add_argument('--dataroot', type=str, default=r'D:\Files\_using\good2impurity2', help='root directory of the dataset')
     parser.add_argument('--input_nc', type=int, default=3, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=3, help='number of channels of output data')
-    parser.add_argument('--size', type=int, default=512, help='size of the data (squared assumed)')
+    parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
     parser.add_argument('--cuda', action='store_true',default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=0, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--generator_A2B', type=str, default='output_ori/netG_A2B.pth', help='A2B generator checkpoint file')
-    parser.add_argument('--generator_B2A', type=str, default='output_ori/netG_B2A.pth', help='B2A generator checkpoint file')
+    parser.add_argument('--generator_A2B', type=str, default=r'D:\Files\_Weights\gan\03-30 00_14_22-cycleGAN_ex/netG_A2B.pth', help='A2B generator checkpoint file')
+    parser.add_argument('--generator_B2A', type=str, default=r'D:\Files\_Weights\gan\03-30 00_14_22-cycleGAN_ex/netG_B2A.pth', help='B2A generator checkpoint file')
     parser.add_argument('--model_name', default="cycleGAN_ex", choices=['cycleGAN', 'cycleGAN_ex'], help="选择模型")
     opt = parser.parse_args()
     print(opt)
@@ -44,7 +44,8 @@ class Detecter:
         self.model_name = args.model_name
 
     def create_save_path(self):
-        save_path = os.path.join('output',self.args.dataroot.split('/')[-1])
+        # save_path = os.path.join('output',self.args.dataroot.split('/')[-1])
+        save_path = os.path.join('output',os.path.split(self.args.dataroot)[-1])
         save_path_A = os.path.join(save_path, 'A')
         save_path_B = os.path.join(save_path, 'B')
         if not os.path.exists(save_path_A):
@@ -118,15 +119,17 @@ class Detecter:
 
         # Create output dirs if they don't exist
         save_path_A, save_path_B=self.create_save_path()
+        print('保存路径：', save_path_A, 'and', save_path_B)
+        for i, batch in enumerate(dataloader):
+            print('\rGenerated images %04d of %04d' % (i + 1, len(dataloader)))
+            self.detect_func(batch, i, input_A, input_B, netG_A2B, netG_B2A, save_path_A, save_path_B)
 
-        # for i, batch in enumerate(dataloader):
-        #     self.detect_func(batch, i, input_A, input_B, netG_A2B, netG_B2A, save_path_A, save_path_B)
         # sys.stdout.write('\n')
         ###################################
-        # 多线程
-        pool = ThreadPoolExecutor()
-        for i, batch in enumerate(tqdm(dataloader)):
-            pool.submit(self.detect_func, batch, i, input_A, input_B, netG_A2B, netG_B2A, save_path_A, save_path_B)
+        # 多线程 有错误，废弃
+        # pool = ThreadPoolExecutor()
+        # for i, batch in enumerate(tqdm(dataloader)):
+        #     pool.submit(self.detect_func, batch, i, input_A, input_B, netG_A2B, netG_B2A, save_path_A, save_path_B)
 
 
 if __name__ == '__main__':
