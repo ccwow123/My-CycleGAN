@@ -22,18 +22,18 @@ from mytools import *
 def parse_args(model_name):
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', default=model_name, choices=['cycleGAN','cycleGAN_ex'], help="选择模型")
-    parser.add_argument('--n_epochs', type=int, default=2, help='终止世代')
+    parser.add_argument('--n_epochs', type=int, default=10000, help='终止世代')
     parser.add_argument('--batchSize', type=int, default=6, help='size of the batches')
-    parser.add_argument('--dataroot', type=str, default=r'data\cap_b2cap_g - 副本', help='root directory of the dataset')
+    parser.add_argument('--dataroot', type=str, default=r"..\_using\good2impurity_pix", help='root directory of the dataset')
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
-    parser.add_argument('--decay_epoch', type=int, default=1, help='开始线性衰减学习率为 0 的世代')
-    parser.add_argument('--size', type=int, default=64, help='数据裁剪的大小（假设为平方）')
+    parser.add_argument('--decay_epoch', type=int, default=1000, help='开始线性衰减学习率为 0 的世代')
+    parser.add_argument('--size', type=int, default=256, help='数据裁剪的大小（假设为平方）')
     # 其他功能
     parser.add_argument('--visdom', default=False, type=bool, help='是否使用visdom')
     parser.add_argument('--pretrained', type=str, default='', help='pretrained model path')
     parser.add_argument('--open-tensorboard', default=False, type=bool, help='使用tensorboard保存网络结构')
     # 默认
-    parser.add_argument('--save_epoch_freq', type=int, default=10, help='保存频率')
+    parser.add_argument('--save_epoch_freq', type=int, default=1000, help='保存频率')
     parser.add_argument('--epoch', type=int, default=0, help='起始世代')
     parser.add_argument('--input_nc', type=int, default=3, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=3, help='number of channels of output data')
@@ -341,7 +341,7 @@ class Trainer():
 
 if __name__ == '__main__':
     # 参数解析
-    args = parse_args('cycleGAN_ex')
+    args = parse_args('cycleGAN')
     # 创建模型
     model = Trainer(args)
     # 模型训练
