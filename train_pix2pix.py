@@ -18,7 +18,7 @@ from torch.autograd import Variable
 
 from utils import *
 from utils.datasets import ImageDataset_pix2pix
-from utils.models_pix2pix import GeneratorUNet as Generator, Discriminator2 as Discriminator
+from utils.models_pix2pix import Discriminator
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
@@ -27,9 +27,11 @@ import torch
 def parser_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
-    parser.add_argument("--n_epochs", type=int, default=10000, help="number of epochs of training")
+    parser.add_argument("--n_epochs", type=int, default=20000, help="number of epochs of training")
     parser.add_argument("--dataset", type=str, default=r"..\_using\good2impurity_patch_samll", help="name of the dataset")
     parser.add_argument("--A2B", default=True, help="翻译方向")
+    parser.add_argument("--Discriminator", type=str, default="ori", help="判别器类型")
+    parser.add_argument("--Generator", type=str, default="ori", help="生成器类型")
 
     # parser.add_argument("--dataset_name", type=str, default="good2impurity2", help="name of the dataset")
     parser.add_argument("--batch_size", type=int, default=2, help="size of the batches")
@@ -46,6 +48,18 @@ def parser_args():
     opt = parser.parse_args()
     print(opt)
     return opt
+
+def craete_model(opt):
+    if opt.Generator == "ori":
+        generator = Generator(opt.channels, opt.channels)
+    else:
+        raise Exception("Generator type not implemented!")
+
+    if opt.Discriminator == "ori":
+        discriminator = Discriminator(opt.channels)
+    else:
+        raise Exception("Discriminator type not implemented!")
+    return generator,discriminator
 def main(opt):
 
     opt.dataset_name=os.path.basename(opt.dataset)
@@ -66,8 +80,10 @@ def main(opt):
     # patch = (1, 8, 8)
 
     # Initialize generator and discriminator
-    generator = Generator(opt.channels, opt.channels)
-    discriminator = Discriminator(opt.channels)
+    # generator = Generator(opt.channels, opt.channels)
+    # discriminator = Discriminator(opt.channels)
+
+    generator ,discriminator = craete_model(opt)
 
     if cuda:
         generator = generator.cuda()
