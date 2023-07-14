@@ -41,9 +41,12 @@ class ImageDataset_pix2pix(Dataset):
         if mode == "train":
             self.files_A = sorted(glob.glob(os.path.join(root, "train/A") + "/*.*"))
             self.files_B = sorted(glob.glob(os.path.join(root, "train/B") + "/*.*"))
-        else:
+        elif mode =='test':
             self.files_A = sorted(glob.glob(os.path.join(root, "test/A") + "/*.*"))
             self.files_B = sorted(glob.glob(os.path.join(root, "test/B") + "/*.*"))
+        else:
+            self.files_A = sorted(glob.glob(os.path.join(root, "testgood/A") + "/*.*"))
+            self.files_B = sorted(glob.glob(os.path.join(root, "testgood/B") + "/*.*"))
 
         # self.files_A = sorted(glob.glob(os.path.join(root, "%s/A" % mode) + "/*.*"))
         # self.files_B = sorted(glob.glob(os.path.join(root, "%s/B" % mode) + "/*.*"))

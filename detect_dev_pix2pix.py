@@ -25,14 +25,14 @@ from tqdm import tqdm
 def parser_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
-    parser.add_argument('--dataroot', type=str, default=r'D:\Files\_using\good2impurity2', help='root directory of the dataset')
+    parser.add_argument('--dataroot', type=str, default=r'D:\Files\_using\good2impurity_patch_samll', help='root directory of the dataset')
     parser.add_argument('--input_nc', type=int, default=3, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=3, help='number of channels of output data')
     parser.add_argument("--img_height", type=int, default=256, help="size of image height")
     parser.add_argument("--img_width", type=int, default=256, help="size of image width")
     parser.add_argument('--cuda', action='store_true',default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=0, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--generator', type=str, default=r'saved_models/good2impurity2/generator_1000.pth', help='A2B generator checkpoint file')
+    parser.add_argument('--generator', type=str, default=r'logs_pix/good2impurity_patch_samll/saved_models/generator_10000.pth', help='A2B generator checkpoint file')
     parser.add_argument('--model_name', default="cycleGAN_ex", choices=['cycleGAN', 'cycleGAN_ex'], help="选择模型")#暂时无用
     opt = parser.parse_args()
     print(opt)
@@ -56,7 +56,7 @@ class Detecter:
         transforms_ = [transforms.ToTensor(),
                        transforms.Resize((self.args.img_height, self.args.img_width), Image.BICUBIC),
                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
-        dataloader = DataLoader(ImageDataset_pix2pix(self.args.dataroot, transforms_=transforms_, mode='test'),
+        dataloader = DataLoader(ImageDataset_pix2pix(self.args.dataroot, transforms_=transforms_, mode='testgood'),
                                 batch_size=self.args.batchSize, shuffle=False, num_workers=self.args.n_cpu)
         return dataloader
 
