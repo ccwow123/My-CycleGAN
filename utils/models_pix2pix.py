@@ -131,3 +131,57 @@ class Discriminator(nn.Module):
         # Concatenate image and condition image by channels to produce input
         img_input = torch.cat((img_A, img_B), 1)
         return self.model(img_input)
+
+
+
+class Discriminator2(nn.Module):
+    def __init__(self, in_channels=3,height=256,width=256,n_conv=5):
+        super().__init__()
+        # Calculate output shape of image discriminator (PatchGAN)
+        self.output_shape = (1, height // 2 ** n_conv, width // 2 ** n_conv)
+
+        def discriminator_block(in_filters, out_filters, normalization=True, padding=0):
+            """Returns downsampling layers of each discriminator block"""
+            layers = [nn.Conv2d(in_filters, out_filters, 2, stride=2, padding=padding)]
+            if normalization:
+                layers.append(nn.InstanceNorm2d(out_filters))
+            layers.append(nn.LeakyReLU(0.2, inplace=True))
+            return layers
+
+        self.conv1 = nn.Sequential(*discriminator_block(in_channels * 2, 64, normalization=False, padding=0))
+        self.conv2 = nn.Sequential(*discriminator_block(64, 128))
+        self.conv3 = nn.Sequential(*discriminator_block(128, 256))
+        self.conv4 = nn.Sequential(*discriminator_block(256, 512))
+        self.conv5 = nn.Sequential(*discriminator_block(512, 1024))
+
+
+        self.zero_pad = nn.ZeroPad2d((1, 0, 1, 0))
+        self.out = nn.Conv2d(1024, 1, 2, padding=1, bias=False)
+        # self.model = nn.Sequential(
+        #     *discriminator_block(in_channels * 2, 64, normalization=False),
+        #     *discriminator_block(64, 128),
+        #     *discriminator_block(128, 256),
+        #     *discriminator_block(256, 512),
+        #     *discriminator_block(512, 1024),
+        #     nn.ZeroPad2d((1, 0, 1, 0)),
+        #     nn.Conv2d(1024, 1, 4, padding=1, bias=False)
+        # )
+
+    def forward(self, img_A, img_B):
+        # Concatenate image and condition image by channels to produce input
+        img_input = torch.cat((img_A, img_B), 1)
+        x = self.conv1(img_input)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = self.conv5(x)
+        # x = self.zero_pad(x)
+        return self.out(x)
+
+        # return self.model(img_input)
+
+if __name__ == "__main__":
+    netD = Discriminator2()
+    inp = torch.randn(1, 3, 256, 256)
+    out = netD(inp, inp)
+    print(out.shape)

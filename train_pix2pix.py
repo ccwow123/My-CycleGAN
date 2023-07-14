@@ -18,7 +18,7 @@ from torch.autograd import Variable
 
 from utils import *
 from utils.datasets import ImageDataset_pix2pix
-from utils.models_pix2pix import GeneratorUNet, Discriminator
+from utils.models_pix2pix import GeneratorUNet as Generator, Discriminator2 as Discriminator
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
@@ -27,10 +27,8 @@ import torch
 def parser_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
-    parser.add_argument("--resume", type=int, default=0, help="epoch to start training from")
-
-    parser.add_argument("--n_epochs", type=int, default=30000, help="number of epochs of training")
-    parser.add_argument("--dataset", type=str, default=r"..\_using\good2impurity_pix", help="name of the dataset")
+    parser.add_argument("--n_epochs", type=int, default=10000, help="number of epochs of training")
+    parser.add_argument("--dataset", type=str, default=r"..\_using\good2impurity_patch_samll", help="name of the dataset")
     parser.add_argument("--A2B", default=True, help="翻译方向")
 
     # parser.add_argument("--dataset_name", type=str, default="good2impurity2", help="name of the dataset")
@@ -38,13 +36,13 @@ def parser_args():
     parser.add_argument("--lr", type=float, default=0.0002, help="adam: learning rate")
     parser.add_argument("--b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
     parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
-    parser.add_argument("--decay_epoch", type=int, default=100, help="epoch from which to start lr decay")
+    parser.add_argument("--decay_epoch", type=int, default=1000, help="epoch from which to start lr decay")
     parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
     parser.add_argument("--img_height", type=int, default=256, help="size of image height")
     parser.add_argument("--img_width", type=int, default=256, help="size of image width")
     parser.add_argument("--channels", type=int, default=3, help="number of image channels")
     parser.add_argument("--sample_interval", type=int, default=500, help="interval between sampling of images from generators")
-    parser.add_argument("--checkpoint_interval", type=int, default=5000, help="多少epoch进行一次模型保存")
+    parser.add_argument("--checkpoint_interval", type=int, default=2000, help="多少epoch进行一次模型保存")
     opt = parser.parse_args()
     print(opt)
     return opt
@@ -64,7 +62,8 @@ def main(opt):
     lambda_pixel = 100
 
     # Calculate output of image discriminator (PatchGAN)
-    patch = (1, opt.img_height // 2 ** 4, opt.img_width // 2 ** 4)
+    # patch = (1, opt.img_height // 2 ** 5, opt.img_width // 2 ** 5) #原版
+    # patch = (1, 8, 8)
 
     # Initialize generator and discriminator
     generator = Generator(opt.channels, opt.channels)
@@ -148,8 +147,8 @@ def main(opt):
                 real_B = Variable(batch["A"].type(Tensor))
 
             # Adversarial ground truths
-            valid = Variable(Tensor(np.ones((real_A.size(0), *patch))), requires_grad=False)
-            fake = Variable(Tensor(np.zeros((real_A.size(0), *patch))), requires_grad=False)
+            valid = Variable(Tensor(np.ones((real_A.size(0), *discriminator.output_shape))), requires_grad=False)
+            fake = Variable(Tensor(np.zeros((real_A.size(0), *discriminator.output_shape))), requires_grad=False)
 
             # ------------------
             #  Train Generators
