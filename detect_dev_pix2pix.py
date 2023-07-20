@@ -11,6 +11,12 @@ from torch.utils.data import DataLoader
 from torch.autograd import Variable
 import torchvision
 import torch
+import os
+import torch
+import torch.nn.functional as F
+from torch.autograd import Variable
+from torchvision.utils import save_image
+from pytorch_msssim import ssim, ms_ssim, SSIM, MS_SSIM
 
 # from utils.models import Generator
 # from utils.datasets import ImageDataset
@@ -74,7 +80,7 @@ class Detecter:
         netG.eval()
         return netG
 
-    def metric_func(self, save_path):
+    def metric_func_FID(self, save_path):
         # 定义真实图像和生成图像的路径
         real_path = os.path.join(save_path, 'real_images')
         generated_path = save_path
@@ -84,6 +90,12 @@ class Detecter:
         fid_value = fid_score.calculate_fid_given_paths(paths, batch_size=8, device=device, dims=2048, num_workers=0)
         print("FID score:", fid_value)
 
+    def metric_func_avgSSIM(self, ssim_values):
+        # 将ssim_values列表转换为PyTorch张量
+        ssim_tensor = torch.tensor(ssim_values)
+        # 计算平均SSIM值
+        average_ssim = ssim_tensor.mean().item()
+        print("Average SSIM value:%.4f" % average_ssim)
 
     def run(self):
         ###### Definition of variables ######
@@ -101,6 +113,10 @@ class Detecter:
         # Create output dirs if they don't exist
         save_path=self.create_save_path()
         print('保存路径：', save_path)
+        # SSIM
+        ssim = SSIM()
+        ssim_values = []  # 初始化一个列表用于保存SSIM值
+
         for i, batch in enumerate(dataloader):
             print('\rGenerated images %04d of %04d' % (i + 1, len(dataloader)))
             # Set model input
@@ -116,8 +132,18 @@ class Detecter:
                 # 为了评价生成的图片，保存真实图片
                 os.makedirs(os.path.join(save_path,'real_images'), exist_ok=True)
                 save_image(real_B, os.path.join(save_path,'real_images', '%04d.png' % (i + 1)))
+
+                # 计算SSIM值
+                ssim_value = ssim(fake_B, real_B)  # 注意此处可能需要调整输入顺序，确保图像形状匹配
+                ssim_values.append(ssim_value.item())
+
+
         if self.args.metric == True:
-            self.metric_func(save_path)
+            # 计算FID
+            # self.metric_func_FID(save_path)
+            # 输出计算得到的SSIM值
+            self.metric_func_avgSSIM(ssim_values)
+
 
 
 if __name__ == '__main__':
