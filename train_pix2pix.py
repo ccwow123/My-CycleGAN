@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets
 from torch.autograd import Variable
 
-from utils import *
+from utils import Generator,Discriminator,weights_init_normal
 from utils.datasets import ImageDataset_pix2pix
 from utils.models_pix2pix import Discriminator
 import torch.nn as nn

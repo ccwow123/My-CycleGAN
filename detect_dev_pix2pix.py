@@ -20,7 +20,7 @@ from pytorch_msssim import ssim, ms_ssim, SSIM, MS_SSIM
 
 # from utils.models import Generator
 # from utils.datasets import ImageDataset
-from utils import *
+from utils import Generator
 from utils.datasets import ImageDataset_pix2pix
 from utils.models_pix2pix import GeneratorUNet, Discriminator
 from concurrent.futures import ThreadPoolExecutor
@@ -40,7 +40,7 @@ def parser_args():
     parser.add_argument("--img_width", type=int, default=256, help="size of image width")
     parser.add_argument('--cuda', default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=0, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--generator', type=str, default=r'logs_pix/good2impurity_patch_samll/saved_models/generator_10000.pth', help='A2B generator checkpoint file')
+    parser.add_argument('--generator', type=str, default=r'logs_pix/good2impurity_patch_samll/saved_models/generator_6000.pth', help='A2B generator checkpoint file')
     parser.add_argument('--model_name', default="cycleGAN_ex", choices=['cycleGAN', 'cycleGAN_ex'], help="选择模型")#暂时无用
     parser.add_argument('--metric', default=True, help='是否保存真实图片，并评价生成的图片，如果使用testgood就不要使用这个选项')
     opt = parser.parse_args()
@@ -140,7 +140,7 @@ class Detecter:
 
         if self.args.metric == True:
             # 计算FID
-            # self.metric_func_FID(save_path)
+            self.metric_func_FID(save_path)
             # 输出计算得到的SSIM值
             self.metric_func_avgSSIM(ssim_values)
 
