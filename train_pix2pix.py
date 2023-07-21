@@ -18,7 +18,7 @@ from torch.autograd import Variable
 
 from utils import Generator,Discriminator,weights_init_normal
 from utils.datasets import ImageDataset_pix2pix
-from utils.models_pix2pix import Discriminator
+from utils.models_pix2pix import GeneratorUNet as Generator_pix2pix , Discriminator as Discriminator_pix2pix
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
@@ -27,36 +27,38 @@ import torch
 def parser_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
-    parser.add_argument("--n_epochs", type=int, default=20000, help="number of epochs of training")
+    parser.add_argument("--n_epochs", type=int, default=1000, help="number of epochs of training")
     parser.add_argument("--dataset", type=str, default=r"..\_using\good2impurity_patch_samll", help="name of the dataset")
     parser.add_argument("--A2B", default=True, help="翻译方向")
-    parser.add_argument("--Discriminator", type=str, default="ori", help="判别器类型")
-    parser.add_argument("--Generator", type=str, default="ori", help="生成器类型")
+    parser.add_argument("--Discriminator", type=str, default="ori",choices=["ori"] ,help="判别器类型")
+    parser.add_argument("--Generator", type=str, default="ori",choices=["ori"] , help="生成器类型")
 
     # parser.add_argument("--dataset_name", type=str, default="good2impurity2", help="name of the dataset")
     parser.add_argument("--batch_size", type=int, default=2, help="size of the batches")
     parser.add_argument("--lr", type=float, default=0.0002, help="adam: learning rate")
     parser.add_argument("--b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
     parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
-    parser.add_argument("--decay_epoch", type=int, default=1000, help="epoch from which to start lr decay")
+    parser.add_argument("--decay_epoch", type=int, default=100, help="epoch from which to start lr decay")
     parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
     parser.add_argument("--img_height", type=int, default=256, help="size of image height")
     parser.add_argument("--img_width", type=int, default=256, help="size of image width")
     parser.add_argument("--channels", type=int, default=3, help="number of image channels")
     parser.add_argument("--sample_interval", type=int, default=500, help="interval between sampling of images from generators")
-    parser.add_argument("--checkpoint_interval", type=int, default=2000, help="多少epoch进行一次模型保存")
+    parser.add_argument("--checkpoint_interval", type=int, default=500, help="多少epoch进行一次模型保存")
     opt = parser.parse_args()
     print(opt)
     return opt
 
 def craete_model(opt):
+    # 生成器
     if opt.Generator == "ori":
-        generator = Generator(opt.channels, opt.channels)
+        generator = Generator_pix2pix(opt.channels, opt.channels)
     else:
         raise Exception("Generator type not implemented!")
 
+    # 判别器
     if opt.Discriminator == "ori":
-        discriminator = Discriminator(opt.channels)
+        discriminator = Discriminator_pix2pix(opt.channels)
     else:
         raise Exception("Discriminator type not implemented!")
     return generator,discriminator
