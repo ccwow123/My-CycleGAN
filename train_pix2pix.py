@@ -20,7 +20,7 @@ from torch.autograd import Variable
 
 from utils import Generator,Discriminator,weights_init_normal
 from utils.datasets import ImageDataset_pix2pix
-from utils.models_pix2pix import GeneratorUNet as Generator_pix2pix , Discriminator as Discriminator_pix2pix
+from utils.models_pix2pix import GeneratorUNet as Generator_pix2pix , Discriminator as Discriminator_pix2pix ,Discriminator2
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
@@ -36,7 +36,7 @@ def parser_args():
     parser.add_argument("--dataset", type=str, default=r"..\_using\good2impurity_patch_samll", help="name of the dataset")
 
     parser.add_argument("--A2B", default=True, help="翻译方向")
-    parser.add_argument("--Discriminator", type=str, default="ori",choices=["ori"] ,help="判别器类型")
+    parser.add_argument("--Discriminator", type=str, default="2",choices=["ori",'2'] ,help="判别器类型")
     parser.add_argument("--Generator", type=str, default="ori",choices=["ori"] , help="生成器类型")
 
 
@@ -82,6 +82,8 @@ def craete_model(opt):
     # 判别器
     if opt.Discriminator == "ori":
         discriminator = Discriminator_pix2pix(opt.channels)
+    elif opt.Discriminator == "2":
+        discriminator = Discriminator2(opt.channels)
     else:
         raise Exception("Discriminator type not implemented!")
     return generator,discriminator
