@@ -20,8 +20,8 @@ from torch.autograd import Variable
 
 from utils import Generator,Discriminator,weights_init_normal
 from utils.datasets import ImageDataset_pix2pix
-from utils.models_pix2pix import GeneratorUNet as Generator_pix2pix , Discriminator as Discriminator_pix2pix ,Discriminator2
-import torch.nn as nn
+from utils.models_pix2pix import GeneratorUNet as Generator_pix2pix , Discriminator as Discriminator_pix2pix 
+from utils.models_pix2pix import GeneratorUNet_A, Discriminator2
 import torch.nn.functional as F
 import torch
 
@@ -29,21 +29,21 @@ import torch
 def parser_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
-    parser.add_argument("--n_epochs", type=int, default=1000, help="number of epochs of training")
-    parser.add_argument("--decay_epoch", type=int, default=100, help="epoch from which to start lr decay")
-    parser.add_argument("--batch_size", type=int, default=2, help="size of the batches")
+    parser.add_argument("--n_epochs", type=int, default=8000, help="number of epochs of training")
+    parser.add_argument("--decay_epoch", type=int, default=1000, help="epoch from which to start lr decay")
+    parser.add_argument("--batch_size", type=int, default=4, help="size of the batches")
 
-    parser.add_argument("--dataset", type=str, default=r"..\_using\good2impurity_patch_samll", help="name of the dataset")
+    parser.add_argument("--dataset", type=str, default=r"..\_using\B3", help="name of the dataset")
 
     parser.add_argument("--A2B", default=True, help="翻译方向")
-    parser.add_argument("--Discriminator", type=str, default="2",choices=["ori",'2'] ,help="判别器类型")
-    parser.add_argument("--Generator", type=str, default="ori",choices=["ori"] , help="生成器类型")
+    parser.add_argument("--Discriminator", type=str, default="ori",choices=["ori",'2'] ,help="判别器类型")
+    parser.add_argument("--Generator", type=str, default="ori",choices=["ori",'A'] , help="生成器类型")
 
 
     parser.add_argument("--img_height", type=int, default=256, help="size of image height")
     parser.add_argument("--img_width", type=int, default=256, help="size of image width")
     parser.add_argument("--channels", type=int, default=3, help="number of image channels")
-    parser.add_argument("--checkpoint_interval", type=int, default=500, help="多少epoch进行一次模型保存")
+    parser.add_argument("--checkpoint_interval", type=int, default=1000, help="多少epoch进行一次模型保存")
     # 一般不变
     parser.add_argument("--sample_interval", type=int, default=500, help="从发生器对图像进行采样之间的间隔")
     parser.add_argument("--lr", type=float, default=0.0002, help="adam: learning rate")
@@ -76,6 +76,8 @@ def craete_model(opt):
     # 生成器
     if opt.Generator == "ori":
         generator = Generator_pix2pix(opt.channels, opt.channels)
+    elif opt.Generator == "A":
+        generator = GeneratorUNet_A(opt.channels, opt.channels)
     else:
         raise Exception("Generator type not implemented!")
 
@@ -130,6 +132,7 @@ def main(opt):
         generator.apply(weights_init_normal)
         discriminator.apply(weights_init_normal)
 
+
     # Optimizers
     optimizer_G = torch.optim.Adam(generator.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
     optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
@@ -149,7 +152,7 @@ def main(opt):
     )
 
     val_dataloader = DataLoader(
-        ImageDataset_pix2pix( opt.dataset, transforms_=transforms_, mode="val"),
+        ImageDataset_pix2pix( opt.dataset, transforms_=transforms_, mode="test"),
         batch_size=10,
         shuffle=True,
         num_workers=opt.n_cpu,
