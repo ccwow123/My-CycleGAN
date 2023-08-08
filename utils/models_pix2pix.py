@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import torch
 
 from .src.mod import CBAM
+from .src.SPADE_net import SPADE
 
 def weights_init_normal(m):
     classname = m.__class__.__name__
@@ -155,6 +156,41 @@ class GeneratorUNet_A(nn.Module):
 
         return self.final(u7)
 
+# 加入
+class SPADEGenerator(GeneratorUNet):
+    def __init__(self, in_channels=3, out_channels=3,style_size=3):
+        super().__init__(in_channels, out_channels)
+        self.norm1 = SPADE(64,style_size)
+        self.norm2 = SPADE(128, style_size)
+        self.norm3 = SPADE(256, style_size)
+        self.norm4 = SPADE(512, style_size)
+        self.norm5 = SPADE(512, style_size)
+        self.norm6 = SPADE(512, style_size)
+        self.norm7 = SPADE(512, style_size)
+
+        self.norm8 = SPADE(1024, style_size)
+
+    def forward(self, x):
+        d1 = self.down1(x)
+        d2 = self.down2(self.norm1(d1, x))
+        d3 = self.down3(self.norm2(d2, x))
+        d4 = self.down4(self.norm3(d3, x))
+        d5 = self.down5(self.norm4(d4, x))
+        d6 = self.down6(self.norm5(d5, x))
+        d7 = self.down7(self.norm6(d6, x))
+        d8 = self.down8(self.norm7(d7, x))
+        u1 = self.up1(d8, d7)
+        u2 = self.up2(self.norm8(u1, x), d6)
+        u3 = self.up3(self.norm8(u2, x), d5)
+        u4 = self.up4(self.norm8(u3, x), d4)
+        u5 = self.up5(self.norm8(u4, x), d3)
+        u6 = self.up6(self.norm4(u5, x), d2)
+        u7 = self.up7(self.norm3(u6, x), d1)
+
+        return self.final(self.norm2(u7, x))
+
+
+
 
 ##############################
 #        Discriminator
@@ -236,10 +272,13 @@ class Discriminator2(nn.Module):
 
         # return self.model(img_input)
 
+
+
 if __name__ == "__main__":
-    netG = GeneratorUNet_A()
-    netD = Discriminator()
+    netG = SPADEGenerator()
+    # netD = Discriminator()
     print(netG)
     inp = torch.randn(1, 3, 256, 256)
-    out = netD(inp, inp)
+    # out = netD(inp, inp)
+    out = netG(inp)
     print(out.shape)

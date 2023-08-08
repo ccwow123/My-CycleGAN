@@ -11,6 +11,7 @@ import sys
 
 import torchvision.transforms as transforms
 from PIL import Image
+from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import save_image
 
@@ -22,6 +23,7 @@ from utils import Generator,Discriminator,weights_init_normal
 from utils.datasets import ImageDataset_pix2pix
 from utils.models_pix2pix import GeneratorUNet as Generator_pix2pix , Discriminator as Discriminator_pix2pix 
 from utils.models_pix2pix import GeneratorUNet_A, Discriminator2
+from utils.models_pix2pix import SPADEGenerator
 import torch.nn.functional as F
 import torch
 
@@ -29,15 +31,15 @@ import torch
 def parser_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
-    parser.add_argument("--n_epochs", type=int, default=8000, help="number of epochs of training")
-    parser.add_argument("--decay_epoch", type=int, default=1000, help="epoch from which to start lr decay")
-    parser.add_argument("--batch_size", type=int, default=4, help="size of the batches")
+    parser.add_argument("--n_epochs", type=int, default=5000, help="number of epochs of training")
+    parser.add_argument("--decay_epoch", type=int, default=100, help="epoch from which to start lr decay")
+    parser.add_argument("--batch_size", type=int, default=8, help="size of the batches")
 
-    parser.add_argument("--dataset", type=str, default=r"..\_using\B3", help="name of the dataset")
+    parser.add_argument("--dataset", type=str, default=r"D:\Files\_using\pix_MLCC_6_multi\VOC2007", help="name of the dataset")
 
     parser.add_argument("--A2B", default=True, help="翻译方向")
     parser.add_argument("--Discriminator", type=str, default="ori",choices=["ori",'2'] ,help="判别器类型")
-    parser.add_argument("--Generator", type=str, default="ori",choices=["ori",'A'] , help="生成器类型")
+    parser.add_argument("--Generator", type=str, default="ori",choices=["ori",'A','SPADE'] , help="生成器类型")
 
 
     parser.add_argument("--img_height", type=int, default=256, help="size of image height")
@@ -78,6 +80,8 @@ def craete_model(opt):
         generator = Generator_pix2pix(opt.channels, opt.channels)
     elif opt.Generator == "A":
         generator = GeneratorUNet_A(opt.channels, opt.channels)
+    elif opt.Generator == "SPADE":
+        generator = SPADEGenerator(opt.channels, opt.channels)
     else:
         raise Exception("Generator type not implemented!")
 
@@ -89,6 +93,23 @@ def craete_model(opt):
     else:
         raise Exception("Discriminator type not implemented!")
     return generator,discriminator
+
+def initialize_weights(model):
+    for m in model.modules():
+        # 判断是否属于Conv2d
+        if isinstance(m, nn.Conv2d):
+            torch.nn.init.xavier_normal_(m.weight.data)
+            # 判断是否有偏置
+            if m.bias is not None:
+                torch.nn.init.constant_(m.bias.data, 0.3)
+        elif isinstance(m, nn.Linear):
+            torch.nn.init.normal_(m.weight.data, 0.1)
+            if m.bias is not None:
+                torch.nn.init.zeros_(m.bias.data)
+        elif isinstance(m, nn.BatchNorm2d):
+            m.weight.data.fill_(1)
+            m.bias.data.fill_(0)
+    return model
 def main(opt):
     cuda = True if torch.cuda.is_available() else False
     # 日志文件
@@ -129,8 +150,8 @@ def main(opt):
         discriminator.load_state_dict(torch.load(os.path.join(checkpoint_path, "discriminator_%d.pth" % (opt.epoch))))
     else:
         # Initialize weights
-        generator.apply(weights_init_normal)
-        discriminator.apply(weights_init_normal)
+        generator=initialize_weights(generator)
+        discriminator=initialize_weights(discriminator)
 
 
     # Optimizers
