@@ -22,7 +22,7 @@ from torch.autograd import Variable
 from utils import Generator,Discriminator,weights_init_normal
 from utils.datasets import ImageDataset_pix2pix
 from utils.models_pix2pix import GeneratorUNet as Generator_pix2pix , Discriminator as Discriminator_pix2pix 
-from utils.models_pix2pix import GeneratorUNet_A, Discriminator2
+from utils.models_pix2pix import GeneratorUNet_A, Discriminator2, Discriminator_SN
 from utils.models_pix2pix import SPADEGenerator
 import torch.nn.functional as F
 import torch
@@ -31,14 +31,14 @@ import torch
 def parser_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
-    parser.add_argument("--n_epochs", type=int, default=5000, help="number of epochs of training")
+    parser.add_argument("--n_epochs", type=int, default=1000, help="number of epochs of training")
     parser.add_argument("--decay_epoch", type=int, default=100, help="epoch from which to start lr decay")
     parser.add_argument("--batch_size", type=int, default=8, help="size of the batches")
 
     parser.add_argument("--dataset", type=str, default=r"E:\Transfer\mlcc\_processed\Seg4", help="name of the dataset")
 
     parser.add_argument("--A2B", default=True, help="翻译方向")
-    parser.add_argument("--Discriminator", type=str, default="ori",choices=["ori",'2'] ,help="判别器类型")
+    parser.add_argument("--Discriminator", type=str, default="SN",choices=["ori",'2','SN'] ,help="判别器类型")
     parser.add_argument("--Generator", type=str, default="ori",choices=["ori",'A','SPADE'] , help="生成器类型")
     parser.add_argument("--wgangp",  default=False, help="是否使用WGAN-GP")
 
@@ -92,6 +92,8 @@ def craete_model(opt):
         discriminator = Discriminator_pix2pix(opt.channels)
     elif opt.Discriminator == "2":
         discriminator = Discriminator2(opt.channels)
+    elif opt.Discriminator == "SN":
+        discriminator = Discriminator_SN(opt.channels)
     else:
         raise Exception("Discriminator type not implemented!")
     return generator,discriminator

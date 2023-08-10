@@ -1,9 +1,10 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+import torch.nn.utils.spectral_norm as spectral_norm
 
-from .src.mod import CBAM
-from .src.SPADE_net import SPADE
+from utils.src.mod import CBAM
+from utils.src.SPADE_net import SPADE
 
 def weights_init_normal(m):
     classname = m.__class__.__name__
@@ -225,7 +226,7 @@ class Discriminator(nn.Module):
         return self.model(img_input)
 
 
-
+# 卷积核大小为3
 class Discriminator2(nn.Module):
     def __init__(self, in_channels=3,height=256,width=256,n_conv=5):
         super().__init__()
@@ -272,13 +273,33 @@ class Discriminator2(nn.Module):
 
         # return self.model(img_input)
 
+# 加入谱范数归一化SN
+class Discriminator_SN(Discriminator):
+    def __init__(self, in_channels=3,height=256,width=256,n_conv=4):
+        super().__init__(in_channels,height,width,n_conv)
+        def Conv_SN_block(in_filters, out_filters, normalization=True):
+            """Returns downsampling layers of each discriminator block"""
+            layers = [spectral_norm(nn.Conv2d(in_filters, out_filters, 4, stride=2, padding=1))]
+            if normalization:
+                layers.append(nn.InstanceNorm2d(out_filters))
+            layers.append(nn.LeakyReLU(0.2, inplace=True))
+            return layers
+
+        self.model = nn.Sequential(
+            *Conv_SN_block(in_channels * 2, 64, normalization=False),
+            *Conv_SN_block(64, 128),
+            *Conv_SN_block(128, 256),
+            *Conv_SN_block(256, 512),
+            nn.ZeroPad2d((1, 0, 1, 0)),
+            spectral_norm(nn.Conv2d(512, 1, 4, padding=1, bias=False))
+        )
 
 
 if __name__ == "__main__":
-    netG = SPADEGenerator()
-    # netD = Discriminator()
-    print(netG)
+    # netG = SPADEGenerator()
+    netD = Discriminator_SN()
+    # print(netG)
     inp = torch.randn(1, 3, 256, 256)
-    # out = netD(inp, inp)
-    out = netG(inp)
+    out = netD(inp, inp)
+    # out = netG(inp)
     print(out.shape)
