@@ -35,11 +35,12 @@ def parser_args():
     parser.add_argument("--decay_epoch", type=int, default=100, help="epoch from which to start lr decay")
     parser.add_argument("--batch_size", type=int, default=8, help="size of the batches")
 
-    parser.add_argument("--dataset", type=str, default=r"D:\Files\_using\pix_MLCC_6_multi\VOC2007", help="name of the dataset")
+    parser.add_argument("--dataset", type=str, default=r"E:\Transfer\mlcc\_processed\Seg4", help="name of the dataset")
 
     parser.add_argument("--A2B", default=True, help="翻译方向")
     parser.add_argument("--Discriminator", type=str, default="ori",choices=["ori",'2'] ,help="判别器类型")
     parser.add_argument("--Generator", type=str, default="ori",choices=["ori",'A','SPADE'] , help="生成器类型")
+    parser.add_argument("--wgangp",  default=False, help="是否使用WGAN-GP")
 
 
     parser.add_argument("--img_height", type=int, default=256, help="size of image height")
@@ -52,6 +53,7 @@ def parser_args():
     parser.add_argument("--b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
     parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
     parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
+
     opt = parser.parse_args()
     print(opt)
     return opt
@@ -110,8 +112,32 @@ def initialize_weights(model):
             m.weight.data.fill_(1)
             m.bias.data.fill_(0)
     return model
+
+
+def compute_gradient_penalty(discriminator, real_A, real_B, fake_B):
+    """计算梯度惩罚"""
+    batch_size = real_A.size(0)
+
+    # 在真实图像和生成图像之间进行插值采样
+    alpha = torch.rand(batch_size, 1, 1, 1).to(real_A.device)
+    interpolated_A = alpha * real_A + (1 - alpha) * fake_B
+    interpolated_A.requires_grad_(True)
+
+    # 计算插值样本通过判别器的输出
+    d_interpolated = discriminator(interpolated_A, fake_B)
+
+    # 计算梯度惩罚项
+    gradients = torch.autograd.grad(outputs=d_interpolated, inputs=interpolated_A,
+                                    grad_outputs=torch.ones(d_interpolated.size()).to(real_A.device),
+                                    create_graph=True, retain_graph=True, only_inputs=True)[0]
+
+    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+    return gradient_penalty
+
+
 def main(opt):
     cuda = True if torch.cuda.is_available() else False
+    device = torch.device("cuda:0" if cuda else "cpu")
     # 日志文件
     opt.dataset_name = os.path.basename(opt.dataset)
     log_dir, results_file, tb = create_log(opt)
@@ -205,111 +231,201 @@ def main(opt):
 
     prev_time = time.time()
 
-    for epoch in range(opt.epoch, opt.n_epochs):
-        for i, batch in enumerate(dataloader):
+    if opt.wgangp != True:
+        for epoch in range(opt.epoch, opt.n_epochs):
+            for i, batch in enumerate(dataloader):
 
-            # Model inputs
-            if opt.A2B== True:
-                real_A = Variable(batch["A"].type(Tensor))
-                real_B = Variable(batch["B"].type(Tensor))
-            else:
-                real_A = Variable(batch["B"].type(Tensor))
-                real_B = Variable(batch["A"].type(Tensor))
+                # Model inputs
+                if opt.A2B== True:
+                    real_A = Variable(batch["A"].type(Tensor))
+                    real_B = Variable(batch["B"].type(Tensor))
+                else:
+                    real_A = Variable(batch["B"].type(Tensor))
+                    real_B = Variable(batch["A"].type(Tensor))
 
-            # Adversarial ground truths
-            valid = Variable(Tensor(np.ones((real_A.size(0), *discriminator.output_shape))), requires_grad=False)
-            fake = Variable(Tensor(np.zeros((real_A.size(0), *discriminator.output_shape))), requires_grad=False)
+                # Adversarial ground truths
+                valid = Variable(Tensor(np.ones((real_A.size(0), *discriminator.output_shape))), requires_grad=False)
+                fake = Variable(Tensor(np.zeros((real_A.size(0), *discriminator.output_shape))), requires_grad=False)
 
-            # ------------------
-            #  Train Generators
-            # ------------------
+                # ------------------
+                #  Train Generators
+                # ------------------
 
-            optimizer_G.zero_grad()
+                optimizer_G.zero_grad()
 
-            # GAN loss
-            fake_B = generator(real_A)
-            pred_fake = discriminator(fake_B, real_A)
-            loss_GAN = criterion_GAN(pred_fake, valid)
-            # Pixel-wise loss
-            loss_pixel = criterion_pixelwise(fake_B, real_B)
+                # GAN loss
+                fake_B = generator(real_A)
+                pred_fake = discriminator(fake_B, real_A)
+                loss_GAN = criterion_GAN(pred_fake, valid)
+                # Pixel-wise loss
+                loss_pixel = criterion_pixelwise(fake_B, real_B)
 
-            # Total loss
-            loss_G = loss_GAN + lambda_pixel * loss_pixel
+                # Total loss
+                loss_G = loss_GAN + lambda_pixel * loss_pixel
 
-            loss_G.backward()
+                loss_G.backward()
 
-            optimizer_G.step()
+                optimizer_G.step()
 
-            # ---------------------
-            #  Train Discriminator
-            # ---------------------
+                # ---------------------
+                #  Train Discriminator
+                # ---------------------
 
-            optimizer_D.zero_grad()
+                optimizer_D.zero_grad()
 
-            # Real loss
-            pred_real = discriminator(real_B, real_A)
-            loss_real = criterion_GAN(pred_real, valid)
+                # Real loss
+                pred_real = discriminator(real_B, real_A)
+                loss_real = criterion_GAN(pred_real, valid)
 
-            # Fake loss
-            pred_fake = discriminator(fake_B.detach(), real_A)
-            loss_fake = criterion_GAN(pred_fake, fake)
+                # Fake loss
+                pred_fake = discriminator(fake_B.detach(), real_A)
+                loss_fake = criterion_GAN(pred_fake, fake)
 
-            # Total loss
-            loss_D = 0.5 * (loss_real + loss_fake)
+                # Total loss
+                loss_D = 0.5 * (loss_real + loss_fake)
 
-            loss_D.backward()
-            optimizer_D.step()
+                loss_D.backward()
+                optimizer_D.step()
 
-            # --------------
-            #  Log Progress
-            # --------------
+                # --------------
+                #  Log Progress
+                # --------------
 
-            # Determine approximate time left
-            batches_done = epoch * len(dataloader) + i
-            batches_left = opt.n_epochs * len(dataloader) - batches_done
-            time_left = datetime.timedelta(seconds=batches_left * (time.time() - prev_time))
-            prev_time = time.time()
-            # 生成样例
-            if batches_done % opt.sample_interval == 0:
-                sample_images(batches_done,opt.A2B)
-        #  打印log
-        print(
-            '\r[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f, pixel: %f, adv: %f] ETA: %s'
-            % (
-                epoch,
-                opt.n_epochs,
-                i,
-                len(dataloader),
-                loss_D.item(),
-                loss_G.item(),
-                loss_pixel.item(),
-                loss_GAN.item(),
-                time_left,
+                # Determine approximate time left
+                batches_done = epoch * len(dataloader) + i
+                batches_left = opt.n_epochs * len(dataloader) - batches_done
+                time_left = datetime.timedelta(seconds=batches_left * (time.time() - prev_time))
+                prev_time = time.time()
+                # 生成样例
+                if batches_done % opt.sample_interval == 0:
+                    sample_images(batches_done,opt.A2B)
+            #  打印log
+            print(
+                '\r[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f, pixel: %f, adv: %f] ETA: %s'
+                % (
+                    epoch,
+                    opt.n_epochs,
+                    i,
+                    len(dataloader),
+                    loss_D.item(),
+                    loss_G.item(),
+                    loss_pixel.item(),
+                    loss_GAN.item(),
+                    time_left,
+                )
             )
-        )
 
-        # 记录日志
-        tb.add_scalar('D/loss_D', loss_D.item(), epoch)
-        tb.add_scalar('G/loss_G', loss_G.item(), epoch)
-        tb.add_scalar('G/loss_pixel', loss_pixel.item(), epoch)
-        tb.add_scalar('G/loss_adv', loss_GAN.item(), epoch)
-        # 创建csv文件
-        header_list = ["epoch", 'loss_D','loss_G','loss_pixel','loss_adv']
-        with open(log_dir + '/val_log.csv', 'a', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=header_list)
-            if epoch == 0:
-                writer.writeheader()
-            writer.writerow({'epoch': epoch, 'loss_D': loss_D.item(), 'loss_G': loss_G.item(), 'loss_pixel': loss_pixel.item(), 'loss_adv': loss_GAN.item()})
-        # 保存args参数
-        with open(log_dir + '/results_file.txt', 'w') as f:
-            f.write(str(opt))
+            # 记录日志
+            tb.add_scalar('D/loss_D', loss_D.item(), epoch)
+            tb.add_scalar('G/loss_G', loss_G.item(), epoch)
+            tb.add_scalar('G/loss_pixel', loss_pixel.item(), epoch)
+            tb.add_scalar('G/loss_adv', loss_GAN.item(), epoch)
+            # 创建csv文件
+            header_list = ["epoch", 'loss_D','loss_G','loss_pixel','loss_adv']
+            with open(log_dir + '/val_log.csv', 'a', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=header_list)
+                if epoch == 0:
+                    writer.writeheader()
+                writer.writerow({'epoch': epoch, 'loss_D': loss_D.item(), 'loss_G': loss_G.item(), 'loss_pixel': loss_pixel.item(), 'loss_adv': loss_GAN.item()})
+            # 保存args参数
+            with open(log_dir + '/results_file.txt', 'w') as f:
+                f.write(str(opt))
 
-        # 保存模型
-        # if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0:
-        if (epoch+1) % opt.checkpoint_interval == 0:
-            # Save model checkpoints
-            torch.save(generator.state_dict(), os.path.join(checkpoint_path, "generator_%d.pth" % (epoch+1)))
-            torch.save(discriminator.state_dict(), os.path.join(checkpoint_path, "discriminator_%d.pth" % (epoch+1)))
+            # 保存模型
+            # if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0:
+            if (epoch+1) % opt.checkpoint_interval == 0:
+                # Save model checkpoints
+                torch.save(generator.state_dict(), os.path.join(checkpoint_path, "generator_%d.pth" % (epoch+1)))
+                torch.save(discriminator.state_dict(), os.path.join(checkpoint_path, "discriminator_%d.pth" % (epoch+1)))
+
+    else:
+        lambda_gp = 10
+        for epoch in range(opt.epoch, opt.n_epochs):
+                for i, batch in enumerate(dataloader):
+                    real_A = batch['A'].to(device)
+                    real_B = batch['B'].to(device)
+                    # Adversarial ground truths
+                    valid = Variable(Tensor(np.ones((real_A.size(0), *discriminator.output_shape))),
+                                     requires_grad=False)
+                    fake = Variable(Tensor(np.zeros((real_A.size(0), *discriminator.output_shape))),
+                                    requires_grad=False)
+
+                    # ---------------------
+                    # 更新判别器的参数
+                    # ---------------------
+                    optimizer_D.zero_grad()
+                    discriminator.zero_grad()
+
+                    fake_B = generator(real_A)
+                    d_real = discriminator(real_B, real_A)
+                    d_fake = discriminator(fake_B.detach(), real_A)
+
+                    gradient_penalty = compute_gradient_penalty(discriminator, real_A, real_B, fake_B)
+
+                    d_loss = d_fake.mean() - d_real.mean() + lambda_gp * gradient_penalty
+                    d_loss.backward()
+                    optimizer_D.step()
+
+                    # ---------------------
+                    # 更新生成器的参数
+                    # ---------------------
+                    optimizer_G.zero_grad()
+                    generator.zero_grad()
+
+                    fake_B = generator(real_A)
+                    d_fake = discriminator(real_A, fake_B)
+                    # Pixel-wise loss
+                    loss_GAN = criterion_GAN(d_fake, valid)
+                    loss_pixel = criterion_pixelwise(fake_B, real_B)
+
+                    g_loss = loss_GAN + lambda_pixel * loss_pixel
+                    g_loss.backward()
+                    optimizer_G.step()
+
+                    # --------------
+                    #  Log Progress
+                    # --------------
+
+                    # Determine approximate time left
+                    batches_done = epoch * len(dataloader) + i
+                    batches_left = opt.n_epochs * len(dataloader) - batches_done
+                    time_left = datetime.timedelta(seconds=batches_left * (time.time() - prev_time))
+                    prev_time = time.time()
+                    # 生成样例
+                    if batches_done % opt.sample_interval == 0:
+                        sample_images(batches_done, opt.A2B)
+                print(
+                    '\r[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f] ETA: %s'
+                    % (
+                        epoch,
+                        opt.n_epochs,
+                        i,
+                        len(dataloader),
+                        d_loss.item(),
+                        g_loss.item(),
+                        time_left,
+                    ))
+                # 记录日志
+                tb.add_scalar('D/loss_D', d_loss.item(), epoch)
+                tb.add_scalar('G/loss_G', g_loss.item(), epoch)
+                # 创建csv文件
+                header_list = ["epoch", 'loss_D', 'loss_G']
+                with open(log_dir + '/val_log_wgan.csv', 'a', newline='') as csvfile:
+                    writer = csv.DictWriter(csvfile, fieldnames=header_list)
+                    if epoch == 0:
+                        writer.writeheader()
+                    writer.writerow({'epoch': epoch, 'loss_D': d_loss.item(), 'loss_G': g_loss.item()})
+                # 保存args参数
+                with open(log_dir + '/results_file_wgan.txt', 'w') as f:
+                    f.write(str(opt))
+
+                # 保存模型
+                if (epoch + 1) % opt.checkpoint_interval == 0:
+                    # Save model checkpoints
+                    torch.save(generator.state_dict(), os.path.join(checkpoint_path, "generator_%d.pth" % (epoch + 1)))
+                    torch.save(discriminator.state_dict(),
+                               os.path.join(checkpoint_path, "discriminator_%d.pth" % (epoch + 1)))
+
 
 if __name__ == '__main__':
     opt = parser_args()
