@@ -5,7 +5,7 @@ import os
 import shutil
 import sys
 
-
+import numpy as np
 import torchvision.transforms as transforms
 from PIL import Image
 from torchvision.utils import save_image
@@ -36,10 +36,11 @@ from train_pix2pix import craete_model
 '''
 def parser_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataroot', type=str, default=r'..\_using\Bpatch2Break', help='填入-测试数据集-路径')
-    parser.add_argument('--generator', type=str, default=r'logs_pix/ori-ori-Bpatch2Break/saved_models/generator_6000.pth',
+    parser.add_argument('--dataroot', type=str, default=r'E:\datasets\_using\pix_MLCCn6', help='填入-测试数据集-路径')
+    # parser.add_argument('--dataroot', type=str, default=r'D:\Files\_using\pix_MLCC_6_multi\VOC2007', help='填入-测试数据集-路径')
+    parser.add_argument('--generator', type=str, default=r'logs_pix/ori-A-pix_MLCCn6/saved_models/generator_500.pth',
                         help='A2B generator checkpoint file')
-    parser.add_argument('--dataset_mode', type=str, default='train',choices=['train','test','testgood'], help='选择数据集模式')
+    parser.add_argument('--dataset_mode', type=str, default='test',choices=['train','test','testgood'], help='选择数据集模式')
     parser.add_argument('--metric', default=True, help='是否保存真实图片，并评价生成的图片，如果使用testgood就不要使用这个选项')
 
     parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
@@ -101,17 +102,37 @@ class Detecter:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # 计算 FID
         fid_value = fid_score.calculate_fid_given_paths(paths, batch_size=8, device=device, dims=2048, num_workers=0)
-        print("FID score:", fid_value)
+        # print("FID score:", fid_value)
         # 删除real_path
-        shutil.rmtree(real_path)
-        shutil.rmtree(generated_path)
+        # shutil.rmtree(real_path)
+        # shutil.rmtree(generated_path)
+        return fid_value
 
-    def metric_func_avgSSIM(self, ssim_values):
-        # 将ssim_values列表转换为PyTorch张量
-        ssim_tensor = torch.tensor(ssim_values)
-        # 计算平均SSIM值
-        average_ssim = ssim_tensor.mean().item()
-        print("Average SSIM value:%.4f" % average_ssim)
+    def calculate_psnr(self,save_path):
+        original_image_path = os.path.join(save_path, 'real_images')
+        generated_image_path = os.path.join(save_path,'fake_images')
+        original_images = sorted(os.listdir(original_image_path))
+        generated_images = sorted(os.listdir(generated_image_path))
+
+        total_psnr = 0.0
+        num_images = len(original_images)
+
+        for i in range(num_images):
+            original = cv2.imread(os.path.join(original_image_path, original_images[i]))
+            generated = cv2.imread(os.path.join(generated_image_path, generated_images[i]))
+
+            mse = np.mean((original - generated) ** 2)
+            if mse == 0:
+                psnr = float('inf')
+            else:
+                max_pixel_value = 255  # Assuming pixel values are in the range [0, 255]
+                psnr = 20 * np.log10(max_pixel_value / np.sqrt(mse))
+
+            total_psnr += psnr
+
+        average_psnr = total_psnr / num_images
+        return average_psnr
+
 
     def run(self):
         ###### Definition of variables ######
@@ -155,24 +176,27 @@ class Detecter:
             save_image(output_img, os.path.join(save_path, '%04d.png' % (i + 1)))
 
 
-            # # Save image files
-            # save_image(fake_B, os.path.join(save_path, '%04d.png' % (i + 1)))
-            # if self.args.metric == True:
-            #     # 为了评价生成的图片，保存真实图片
-            #     real_B = 0.5*(real_B.data + 1.0)
-            #     os.makedirs(os.path.join(save_path,'real_images'), exist_ok=True)
-            #     save_image(real_B, os.path.join(save_path,'real_images', '%04d.png' % (i + 1)))
-
-            #     # 计算SSIM值
-            #     ssim_value = ssim(fake_B, real_B)  # 注意此处可能需要调整输入顺序，确保图像形状匹配
-            #     ssim_values.append(ssim_value.item())
-
 
         if self.args.metric == True:
             # 计算FID
-            self.metric_func_FID(save_path)
-            # 输出计算得到的SSIM值
-            # self.metric_func_avgSSIM(ssim_values)
+            fid_value = self.metric_func_FID(save_path)
+            # 计算PSNR
+            psnr_value = self.calculate_psnr(save_path)
+
+            print("FID score:", fid_value)
+            print("PSNR score:", psnr_value)
+
+            # 保存FID和PSNR值
+            with open(os.path.join(save_path, 'metic.txt'), 'a') as f:
+                f.write(str(fid_value))
+                f.write('\n')
+                f.write(str(psnr_value))
+
+            real_path = os.path.join(save_path, 'real_images')
+            generated_path = os.path.join(save_path,'fake_images')
+            # 删除real_path  generated_path
+            shutil.rmtree(real_path)
+            shutil.rmtree(generated_path)
 
 
 
