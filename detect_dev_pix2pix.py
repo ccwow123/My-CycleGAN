@@ -36,11 +36,11 @@ from train_pix2pix import craete_model
 '''
 def parser_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataroot', type=str, default=r'E:\datasets\_using\pix_MLCCn6', help='填入-测试数据集-路径')
-    # parser.add_argument('--dataroot', type=str, default=r'D:\Files\_using\pix_MLCC_6_multi\VOC2007', help='填入-测试数据集-路径')
-    parser.add_argument('--generator', type=str, default=r'logs_pix/ori-A-pix_MLCCn6/saved_models/generator_500.pth',
+    # parser.add_argument('--dataroot', type=str, default=r'E:\datasets\_using\pix_MLCCn6', help='填入-测试数据集-路径')
+    parser.add_argument('--dataroot', type=str, default=r'E:\datasets\_using\Good2MLCCn6', help='填入-测试数据集-路径')
+    parser.add_argument('--generator', type=str, default=r'logs_pix/ori-ori-pix_MLCCn6/saved_models/generator_500.pth',
                         help='A2B generator checkpoint file')
-    parser.add_argument('--dataset_mode', type=str, default='test',choices=['train','test','testgood'], help='选择数据集模式')
+    parser.add_argument('--dataset_mode', type=str, default='testgood',choices=['train','test','testgood'], help='选择数据集模式')
     parser.add_argument('--metric', default=True, help='是否保存真实图片，并评价生成的图片，如果使用testgood就不要使用这个选项')
 
     parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
@@ -188,15 +188,15 @@ class Detecter:
 
             # 保存FID和PSNR值
             with open(os.path.join(save_path, 'metic.txt'), 'a') as f:
-                f.write(str(fid_value))
+                f.write('FID score: ' + str(fid_value))
                 f.write('\n')
-                f.write(str(psnr_value))
+                f.write("PSNR score: " + str(psnr_value))
 
             real_path = os.path.join(save_path, 'real_images')
             generated_path = os.path.join(save_path,'fake_images')
             # 删除real_path  generated_path
-            shutil.rmtree(real_path)
-            shutil.rmtree(generated_path)
+            # shutil.rmtree(real_path)
+            # shutil.rmtree(generated_path)
 
 
 
