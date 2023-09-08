@@ -41,7 +41,8 @@ def parser_args():
     parser.add_argument('--generator', type=str, default=r'logs_pix/ori-ori-pix_MLCCn6/saved_models/generator_500.pth',
                         help='A2B generator checkpoint file')
     parser.add_argument('--dataset_mode', type=str, default='testgood',choices=['train','test','testgood'], help='选择数据集模式')
-    parser.add_argument('--metric', default=True, help='是否保存真实图片，并评价生成的图片，如果使用testgood就不要使用这个选项')
+    parser.add_argument('--metric', default=True, help='是否评价生成的图片')
+    parser.add_argument('--save_imgs', default=True, help='是否保存生成的图片')
 
     parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
     parser.add_argument('--channels', type=int, default=3, help='number of channels of input data')
@@ -151,9 +152,6 @@ class Detecter:
         # Create output dirs if they don't exist
         save_path=self.create_save_path()
         print('-------保存路径：------------', save_path)
-        # SSIM
-        ssim = SSIM()
-        ssim_values = []  # 初始化一个列表用于保存SSIM值
 
         for i, batch in enumerate(dataloader):
             print('\rGenerated images %04d of %04d' % (i + 1, len(dataloader)))
@@ -165,15 +163,19 @@ class Detecter:
             fake_B = 0.5*(netG(real_A).data + 1.0) # 这里的fake_B是生成器生成的B图像，不是真实的B图像
             real_A = 0.5*(real_A.data + 1.0) # 这里的real_A是真实的A图像，不是生成器生成的A图像
             real_B = 0.5*(real_B.data + 1.0) # 这里的real_B是真实的B图像，不是生成器生成的B图像
+
+            # 获取当前文件名
+            file_name = os.path.basename(dataloader.dataset.files_A[i])
+
             if self.args.metric == True:
                 os.makedirs(os.path.join(save_path,'real_images'), exist_ok=True)
-                save_image(real_B, os.path.join(save_path,'real_images', '%04d.png' % (i + 1)))
+                save_image(real_B, os.path.join(save_path,'real_images', file_name))
                 os.makedirs(os.path.join(save_path,'fake_images'), exist_ok=True)
-                save_image(fake_B, os.path.join(save_path,'fake_images', '%04d.png' % (i + 1)))
+                save_image(fake_B, os.path.join(save_path,'fake_images', file_name))
             # 进行图像拼接
             output_img = torch.cat((real_B,real_A, fake_B), 3)
             # 保存图像
-            save_image(output_img, os.path.join(save_path, '%04d.png' % (i + 1)))
+            save_image(output_img, os.path.join(save_path, file_name))
 
 
 
@@ -194,9 +196,12 @@ class Detecter:
 
             real_path = os.path.join(save_path, 'real_images')
             generated_path = os.path.join(save_path,'fake_images')
-            # 删除real_path  generated_path
-            # shutil.rmtree(real_path)
-            # shutil.rmtree(generated_path)
+
+            if args.save_imgs == False:
+                # 删除real_path  generated_path
+                shutil.rmtree(real_path)
+                shutil.rmtree(generated_path)
+
 
 
 
