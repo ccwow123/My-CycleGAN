@@ -32,7 +32,7 @@ import torch
 def parser_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
-    parser.add_argument("--n_epochs", type=int, default=1000, help="number of epochs of training")
+    parser.add_argument("--n_epochs", type=int, default=500, help="number of epochs of training")
     parser.add_argument("--decay_epoch", type=int, default=100, help="epoch from which to start lr decay")
     parser.add_argument("--batch_size", type=int, default=12, help="size of the batches")
 
@@ -40,8 +40,8 @@ def parser_args():
 
     parser.add_argument("--A2B", default=True, help="翻译方向")
     parser.add_argument("--Discriminator", type=str, default="ori",choices=["ori",'2','SN'] ,help="判别器类型")
-    parser.add_argument("--Generator", type=str, default="ori",choices=["ori",'A','A_en','SPADE'] , help="生成器类型")
-    parser.add_argument("--wgangp",  default=False, help="是否使用WGAN-GP")
+    parser.add_argument("--Generator", type=str, default="A",choices=["ori",'A','A_en','SPADE'] , help="生成器类型")
+    parser.add_argument("--wgangp",  default=True, help="是否使用WGAN-GP")
 
 
     parser.add_argument("--img_height", type=int, default=256, help="size of image height")
@@ -120,7 +120,7 @@ def initialize_weights(model):
             m.bias.data.fill_(0)
     return model
 
-
+# Wgan-gp
 def compute_gradient_penalty(discriminator, real_A, real_B, fake_B):
     """计算梯度惩罚"""
     batch_size = real_A.size(0)
@@ -142,36 +142,33 @@ def compute_gradient_penalty(discriminator, real_A, real_B, fake_B):
     return gradient_penalty
 
 
-
-
+# ----------
 def main(opt):
+    # 设备为GPU
     cuda = True if torch.cuda.is_available() else False
     device = torch.device("cuda:0" if cuda else "cpu")
-    # 日志文件
-    opt.dataset_name = os.path.basename(opt.dataset)
-    log_dir, results_file, tb = create_log(opt)
-    checkpoint_path = os.path.join(log_dir, "saved_models")
+    # 初始化日志文件夹
+    opt.dataset_name = os.path.basename(opt.dataset) # 获取数据集名称
+    log_dir, results_file, tb = create_log(opt) # 创建日志文件夹,返回配置文件以及tensorboard实例
+    checkpoint_path = os.path.join(log_dir, "saved_models") # 保存模型的文件夹
     os.makedirs(checkpoint_path, exist_ok=True)
-    imgs_save_path = os.path.join(log_dir, "images")
+    imgs_save_path = os.path.join(log_dir, "images") # 保存图片的文件夹
     os.makedirs(imgs_save_path, exist_ok=True)
 
 
-    # Loss functions
-    criterion_GAN = torch.nn.MSELoss()
-    criterion_pixelwise = torch.nn.L1Loss()
+    # 损失函数创建
+    criterion_GAN = torch.nn.MSELoss() # GAN损失  原版
+    criterion_pixelwise = torch.nn.L1Loss() # 像素损失
 
-    # Loss weight of L1 pixel-wise loss between translated image and real image
+    # L1像素损失在平移图像和真实图像之间的损失
     lambda_pixel = 100
 
-    # Calculate output of image discriminator (PatchGAN)
+    # 计算图像鉴别器（PatchGAN）的输出大小
     # patch = (1, opt.img_height // 2 ** 5, opt.img_width // 2 ** 5) #原版
     # patch = (1, 8, 8)
 
-    # Initialize generator and discriminator
-    # generator = Generator(opt.channels, opt.channels)
-    # discriminator = Discriminator(opt.channels)
-
-    generator ,discriminator = craete_model(opt)
+    # 初始化生成器和判别器
+    generator,discriminator = craete_model(opt)
 
     if cuda:
         generator = generator.cuda()
@@ -193,7 +190,7 @@ def main(opt):
     optimizer_G = torch.optim.Adam(generator.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
     optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
 
-    # Configure dataloaders
+    # 配置数据加载器
     transforms_ = [
         transforms.Resize((opt.img_height, opt.img_width), Image.BICUBIC),
         transforms.ToTensor(),
@@ -241,6 +238,7 @@ def main(opt):
     prev_time = time.time()
 
     if opt.wgangp != True:
+        # 原版 ori 训练
         for epoch in range(opt.epoch, opt.n_epochs):
             for i, batch in enumerate(dataloader):
 
@@ -265,12 +263,12 @@ def main(opt):
                 # GAN loss
                 fake_B = generator(real_A)
                 pred_fake = discriminator(fake_B, real_A)
-                loss_GAN = criterion_GAN(pred_fake, valid)
+                loss_real = criterion_GAN(pred_fake, valid)
                 # Pixel-wise loss
                 loss_pixel = criterion_pixelwise(fake_B, real_B)
 
                 # Total loss
-                loss_G = loss_GAN + lambda_pixel * loss_pixel
+                loss_G = loss_real + lambda_pixel * loss_pixel
 
                 loss_G.backward()
 
@@ -319,7 +317,7 @@ def main(opt):
                     loss_D.item(),
                     loss_G.item(),
                     loss_pixel.item(),
-                    loss_GAN.item(),
+                    loss_real.item(),
                     time_left,
                 )
             )
@@ -328,14 +326,14 @@ def main(opt):
             tb.add_scalar('D/loss_D', loss_D.item(), epoch)
             tb.add_scalar('G/loss_G', loss_G.item(), epoch)
             tb.add_scalar('G/loss_pixel', loss_pixel.item(), epoch)
-            tb.add_scalar('G/loss_adv', loss_GAN.item(), epoch)
+            tb.add_scalar('G/loss_adv', loss_real.item(), epoch)
             # 创建csv文件
             header_list = ["epoch", 'loss_D','loss_G','loss_pixel','loss_adv']
             with open(log_dir + '/val_log.csv', 'a', newline='') as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=header_list)
                 if epoch == 0:
                     writer.writeheader()
-                writer.writerow({'epoch': epoch, 'loss_D': loss_D.item(), 'loss_G': loss_G.item(), 'loss_pixel': loss_pixel.item(), 'loss_adv': loss_GAN.item()})
+                writer.writerow({'epoch': epoch, 'loss_D': loss_D.item(), 'loss_G': loss_G.item(), 'loss_pixel': loss_pixel.item(), 'loss_adv': loss_real.item()})
             # 保存args参数
             with open(log_dir + '/results_file.txt', 'w') as f:
                 f.write(str(opt))
@@ -347,160 +345,114 @@ def main(opt):
                 torch.save(generator.state_dict(), os.path.join(checkpoint_path, "generator_%d.pth" % (epoch+1)))
                 torch.save(discriminator.state_dict(), os.path.join(checkpoint_path, "discriminator_%d.pth" % (epoch+1)))
 
-    else:
-
-        lambda_gp = 100
-
+    else:  # wgan-gp 训练
+        lambda_gp = 100  # 梯度惩罚系数,越大越好
         for epoch in range(opt.epoch, opt.n_epochs):
-
             for i, batch in enumerate(dataloader):
-
                 real_A = batch['A'].to(device)
-
                 real_B = batch['B'].to(device)
 
                 # Adversarial ground truths
-
                 valid = Variable(Tensor(np.ones((real_A.size(0), *discriminator.output_shape))),
-
                                  requires_grad=False)
-
                 fake = Variable(Tensor(np.zeros((real_A.size(0), *discriminator.output_shape))),
-
                                 requires_grad=False)
 
                 # ---------------------
-
                 # 更新判别器的参数
-
                 # ---------------------
-
                 optimizer_D.zero_grad()
-
                 discriminator.zero_grad()
 
-                fake_B = generator(real_A)
+                fake_B = generator(real_A) # 生成器生成的假图像
 
-                d_real = discriminator(real_B, real_A)
-                loss_GAN = criterion_GAN(d_real, valid)
-                # Pixel-wise loss
+                # Real loss
+                pred_real = discriminator(real_B, real_A) # 判别器判别真图像,真图像输出为1
+                loss_real = criterion_GAN(pred_real, valid) # GAN loss
+
+                # 计算 Pixel-wise loss
                 loss_pixel = criterion_pixelwise(fake_B, real_B)
 
+                # Fake loss
+                pred_fake = discriminator(fake_B.detach(), real_A) # 判别器判别假图像,假图像输出为0
+                loss_fake = criterion_GAN(pred_fake, fake)
 
-                d_fake = discriminator(fake_B.detach(), real_A)
+                # Total loss
+                loss_D = 0.5 * (loss_real + loss_fake) # 判别器的总loss
+                gradient_penalty = compute_gradient_penalty(discriminator, real_A, real_B, fake_B) # 计算梯度惩罚
+                loss_D_total = lambda_gp * gradient_penalty + loss_D + loss_pixel # 判别器的总loss
 
-                gradient_penalty = compute_gradient_penalty(discriminator, real_A, real_B, fake_B)
-
-                d_loss = d_fake.mean() - d_real.mean() + lambda_gp * gradient_penalty+loss_GAN+loss_pixel
-
-                d_loss.backward()
-
+                loss_D_total.backward()
                 optimizer_D.step()
 
                 # ---------------------
-
                 # 更新生成器的参数
-
                 # ---------------------
-
                 optimizer_G.zero_grad()
-
                 generator.zero_grad()
 
-                fake_B = generator(real_A)
-
-                d_fake = discriminator(real_A, fake_B)
+                # GAN loss
+                fake_B = generator(real_A) # 生成器生成的假图像
+                pred_fake = discriminator(real_A, fake_B) # 判别器判别假图像,假图像输出为1
+                loss_real = criterion_GAN(pred_fake, valid)
 
                 # Pixel-wise loss
-
-                loss_GAN = criterion_GAN(d_fake, valid)
-
                 loss_pixel = criterion_pixelwise(fake_B, real_B)
 
-                g_loss = loss_GAN + lambda_pixel * loss_pixel
+                # Total loss
+                loss_G = loss_real + lambda_pixel * loss_pixel
 
-                g_loss.backward()
-
+                loss_G.backward()
                 optimizer_G.step()
 
                 # --------------
-
                 #  Log Progress
-
                 # --------------
 
                 # Determine approximate time left
-
                 batches_done = epoch * len(dataloader) + i
-
                 batches_left = opt.n_epochs * len(dataloader) - batches_done
-
                 time_left = datetime.timedelta(seconds=batches_left * (time.time() - prev_time))
-
                 prev_time = time.time()
 
                 # 生成样例
-
                 if batches_done % opt.sample_interval == 0:
                     sample_images(batches_done, opt.A2B)
 
             print(
-
                 '\r[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f] ETA: %s'
-
                 % (
-
                     epoch,
-
                     opt.n_epochs,
-
                     i,
-
                     len(dataloader),
-
-                    d_loss.item(),
-
-                    g_loss.item(),
-
+                    loss_D_total.item(),
+                    loss_G.item(),
                     time_left,
-
                 ))
 
             # 记录日志
-
-            tb.add_scalar('D/loss_D', d_loss.item(), epoch)
-
-            tb.add_scalar('G/loss_G', g_loss.item(), epoch)
-
+            tb.add_scalar('D/loss_D', loss_D.item(), epoch)
+            tb.add_scalar('G/loss_G', loss_G.item(), epoch)
+            tb.add_scalar('G/loss_pixel', loss_pixel.item(), epoch)
+            tb.add_scalar('G/loss_adv', loss_real.item(), epoch)
             # 创建csv文件
-
-            header_list = ["epoch", 'loss_D', 'loss_G']
-
-            with open(log_dir + '/val_log_wgan.csv', 'a', newline='') as csvfile:
-
+            header_list = ["epoch", 'loss_D','loss_G','loss_pixel','loss_adv']
+            with open(log_dir + '/val_log.csv', 'a', newline='') as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=header_list)
-
                 if epoch == 0:
                     writer.writeheader()
-
-                writer.writerow({'epoch': epoch, 'loss_D': d_loss.item(), 'loss_G': g_loss.item()})
-
+                writer.writerow({'epoch': epoch, 'loss_D': loss_D.item(), 'loss_G': loss_G.item(), 'loss_pixel': loss_pixel.item(), 'loss_adv': loss_real.item()})
             # 保存args参数
-
-            with open(log_dir + '/results_file_wgan.txt', 'w') as f:
-
+            with open(log_dir + '/results_file.txt', 'w') as f:
                 f.write(str(opt))
 
             # 保存模型
-
-            if (epoch + 1) % opt.checkpoint_interval == 0:
+            # if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0:
+            if (epoch+1) % opt.checkpoint_interval == 0:
                 # Save model checkpoints
-
-                torch.save(generator.state_dict(), os.path.join(checkpoint_path, "generator_%d.pth" % (epoch + 1)))
-
-                torch.save(discriminator.state_dict(),
-
-                           os.path.join(checkpoint_path, "discriminator_%d.pth" % (epoch + 1)))
+                torch.save(generator.state_dict(), os.path.join(checkpoint_path, "generator_%d.pth" % (epoch+1)))
+                torch.save(discriminator.state_dict(), os.path.join(checkpoint_path, "discriminator_%d.pth" % (epoch+1)))
 
 if __name__ == '__main__':
     opt = parser_args()
