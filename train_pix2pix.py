@@ -24,7 +24,7 @@ from utils.datasets import ImageDataset_pix2pix
 from utils.models_pix2pix import GeneratorUNet as Generator_pix2pix , Discriminator as Discriminator_pix2pix 
 from utils.models_pix2pix import GeneratorUNet_A,GeneratorUNet_A_en
 from utils.models_pix2pix import Discriminator2, Discriminator_SN
-from utils.models_pix2pix import SPADEGenerator
+from utils.models_pix2pix import SPADEGenerator,NL_Generator
 import torch.nn.functional as F
 import torch
 
@@ -40,7 +40,7 @@ def parser_args():
 
     parser.add_argument("--A2B", default=True, help="翻译方向")
     parser.add_argument("--Discriminator", type=str, default="ori",choices=["ori",'2','SN'] ,help="判别器类型")
-    parser.add_argument("--Generator", type=str, default="A",choices=["ori",'A','A_en','SPADE'] , help="生成器类型")
+    parser.add_argument("--Generator", type=str, default="NL",choices=["ori",'A','A_en','SPADE'] , help="生成器类型")
     parser.add_argument("--wgangp",  default=True, help="是否使用WGAN-GP")
 
 
@@ -89,6 +89,8 @@ def craete_model(opt):
         generator = GeneratorUNet_A_en(opt.channels, opt.channels)
     elif opt.Generator == "SPADE":
         generator = SPADEGenerator(opt.channels, opt.channels)
+    elif opt.Generator == "NL":
+        generator = NL_Generator(opt.channels, opt.channels)
     else:
         raise Exception("Generator type not implemented!")
 

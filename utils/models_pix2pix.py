@@ -3,8 +3,11 @@ import torch.nn.functional as F
 import torch
 import torch.nn.utils.spectral_norm as spectral_norm
 
-from utils.src.mod import CBAM
+from utils.src.mod import CBAM,NONLocalBlock2D
 from utils.src.SPADE_net import SPADE
+
+# from src.mod import CBAM,NONLocalBlock2D
+# from src.SPADE_net import SPADE
 
 def weights_init_normal(m):
     classname = m.__class__.__name__
@@ -161,7 +164,7 @@ class GeneratorUNet_A_en(GeneratorUNet_A):
 
 
 
-# 加入
+# 加入SPADE
 class SPADEGenerator(GeneratorUNet):
     def __init__(self, in_channels=3, out_channels=3,style_size=3):
         super().__init__(in_channels, out_channels)
@@ -193,6 +196,35 @@ class SPADEGenerator(GeneratorUNet):
         u7 = self.up7(self.norm3(u6, x), d1)
 
         return self.final(self.norm2(u7, x))
+
+# 加入Non-local
+class NL_Generator(GeneratorUNet):
+    def __init__(self, in_channels=3, out_channels=3):
+        super().__init__(in_channels, out_channels)
+        self.nl1 = NONLocalBlock2D(64)
+        self.nl2 = NONLocalBlock2D(128)
+        self.nl3 = NONLocalBlock2D(256)
+        self.nl4 = NONLocalBlock2D(512)
+
+    def forward(self, x):
+        d1 = self.down1(x)
+        d2 = self.down2(self.nl1(d1))
+        d3 = self.down3(self.nl2(d2))
+        d4 = self.down4(self.nl3(d3))
+        d5 = self.down5(self.nl4(d4))
+        d6 = self.down6(self.nl4(d5))
+        d7 = self.down7(self.nl4(d6))
+        d8 = self.down8(self.nl4(d7))
+        u1 = self.up1(d8, d7)
+        u2 = self.up2(u1, d6)
+        u3 = self.up3(u2, d5)
+        u4 = self.up4(u3, d4)
+        u5 = self.up5(u4, d3)
+        u6 = self.up6(u5, d2)
+        u7 = self.up7(u6, d1)
+
+        return self.final(u7)
+
 
 
 
@@ -300,10 +332,7 @@ class Discriminator_SN(Discriminator):
 
 
 if __name__ == "__main__":
-    # netG = SPADEGenerator()
-    netD = GeneratorUNet_A_en()
-    # print(netG)
+    model = NL_Generator()
     inp = torch.randn(1, 3, 256, 256)
-    out = netD(inp, inp)
-    # out = netG(inp)
+    out = model(inp)
     print(out.shape)
